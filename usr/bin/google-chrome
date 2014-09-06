@@ -1,0 +1,2 @@
+#!/bin/bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome $1 $2 $3 $4 $5
