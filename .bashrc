@@ -32,6 +32,9 @@ alias grl="grep-manual . -rl"
 alias cgr="grep-manual . -r --exclude='*.js'"
 alias cgrl="grep-manual . -rl --exclude='*.js'"
 
+# Vars
+export EDITOR=mcedit
+
 # --------------------
 # Remote Ubuntu server
 # --------------------
