@@ -1,0 +1,5 @@
+#!/bin/bash
+
+for keyword; do true; done
+
+grep $keyword $1 $2 $3 $4 $5 $6

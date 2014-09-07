@@ -27,6 +27,10 @@ alias runserver="python manage.py runserver"
 alias realsync="perl /usr/local/realsync/realsync"
 alias simplehttpserver="python -m SimpleHTTPServer"
 
+alias gr="grep-manual . -r"
+alias grl="grep-manual . -rl"
+alias cgr="grep-manual . -r --exclude='*.js'"
+alias cgrl="grep-manual . -rl --exclude='*.js'"
 
 # --------------------
 # Remote Ubuntu server
