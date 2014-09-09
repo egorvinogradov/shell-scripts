@@ -29,8 +29,8 @@ alias simplehttpserver="python -m SimpleHTTPServer"
 
 alias gr="grep-manual . -r"
 alias grl="grep-manual . -rl"
-alias cgr="grep-manual . -r --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*'"
-alias cgrl="grep-manual . -rl --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*'"
+alias cgr="grep-manual . -r --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.js'"
+alias cgrl="grep-manual . -rl --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.js'"
 
 # Vars
 export EDITOR=mcedit
