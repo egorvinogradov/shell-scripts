@@ -27,10 +27,11 @@ alias runserver="python manage.py runserver"
 alias realsync="perl /usr/local/realsync/realsync"
 alias simplehttpserver="python -m SimpleHTTPServer"
 
-alias gr="grep-manual . -r"
-alias grl="grep-manual . -rl"
-alias cgr="grep-manual . -r --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.js'"
-alias cgrl="grep-manual . -rl --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.js'"
+alias gr="grep-manual . -r --exclude='*tmp*' --exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*'"
+alias grl="grep-manual . -rl --exclude='*tmp*' --exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*'"
+alias cgr="gr --exclude='*.js'"
+alias cgrl="gr --exclude='*.js'"
+
 
 # Vars
 export EDITOR=mcedit
