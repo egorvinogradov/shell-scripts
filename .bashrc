@@ -32,6 +32,7 @@ alias grl="grep-manual . -rl --exclude='*tmp*' --exclude='*log*' --exclude='*dem
 alias cgr="gr --exclude='*.js'"
 alias cgrl="gr --exclude='*.js'"
 
+alias bower="noglob bower"
 
 # Vars
 export EDITOR=mcedit
