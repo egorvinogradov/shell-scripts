@@ -34,6 +34,8 @@ alias grl="grep-manual . -rl $grep_exclusions"
 alias cgr="gr --exclude='*.js'"
 alias cgrl="grl --exclude='*.js'"
 
+alias start_rails="kill -9 `cat tmp/pids/server.pid` && rails s"
+
 alias bower="noglob bower"
 
 # Vars
