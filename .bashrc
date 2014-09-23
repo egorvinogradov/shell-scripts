@@ -3,6 +3,7 @@
 # ---------
 
 # git
+
 alias ggbranch="git branch"
 alias ggcheckout="git checkout"
 alias ggfetch="git fetch"
@@ -17,12 +18,14 @@ alias ggreset="git reset --hard"
 alias ggmerge="git merge"
 
 # Directories
+
 alias lla="ls -la -G"
 alias la="ls -a -G"
 alias ls="ls -G"
 alias lls="lla"
 
 # Development
+
 alias runserver="python manage.py runserver"
 alias realsync="perl /usr/local/realsync/realsync"
 alias simplehttpserver="python -m SimpleHTTPServer"
@@ -38,14 +41,16 @@ alias start_rails="kill -9 `eval $rails_process`; rails s"
 
 alias bower="noglob bower"
 
+
 # Vars
 export EDITOR=mcedit
+
 
 # --------------------
 # Remote Ubuntu server
 # --------------------
 
-alias runserver="fuser -k 9999/tcp; python ~/amazinghiring/frontend/apps/ah/manage.py runserver 0.0.0.0:9999"
-alias ls="ls --color=auto"
-alias lla="ls -la"
-alias grep="grep --color=auto"
+# alias runserver="fuser -k 9999/tcp; python ~/amazinghiring/frontend/apps/ah/manage.py runserver 0.0.0.0:9999"
+# alias ls="ls --color=auto"
+# alias lla="ls -la"
+# alias grep="grep --color=auto"
