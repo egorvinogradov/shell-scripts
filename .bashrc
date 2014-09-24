@@ -30,7 +30,7 @@ alias runserver="python manage.py runserver"
 alias realsync="perl /usr/local/realsync/realsync"
 alias simplehttpserver="python -m SimpleHTTPServer"
 
-grep_exclusions="--exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.idea*'"
+grep_exclusions="--exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.idea*' --exclude='*tmp*'"
 alias gr="grep-manual . -r $grep_exclusions"
 alias grl="grep-manual . -rl $grep_exclusions"
 alias cgr="gr --exclude='*.js'"
