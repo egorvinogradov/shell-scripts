@@ -37,7 +37,7 @@ alias cgr="gr --exclude='*.js'"
 alias cgrl="grl --exclude='*.js'"
 
 rails_process="cat tmp/pids/server.pid"
-alias start_rails="kill -9 `eval $rails_process`; rails s"
+alias runrails="kill -9 `eval $rails_process`; rails s"
 
 alias bower="noglob bower"
 
