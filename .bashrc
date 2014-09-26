@@ -26,18 +26,15 @@ alias lls="lla"
 
 # Development
 
-alias runserver="python manage.py runserver"
 alias realsync="perl /usr/local/realsync/realsync"
 alias simplehttpserver="python -m SimpleHTTPServer"
 
 grep_exclusions="--exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.idea*' --exclude='*tmp*'"
+
 alias gr="grep-manual . -r $grep_exclusions"
 alias grl="grep-manual . -rl $grep_exclusions"
 alias cgr="gr --exclude='*.js'"
 alias cgrl="grl --exclude='*.js'"
-
-rails_process="cat tmp/pids/server.pid"
-alias runrails="kill -9 `eval $rails_process`; rails s"
 
 alias bower="noglob bower"
 
