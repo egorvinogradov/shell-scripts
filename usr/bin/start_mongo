@@ -1,0 +1,5 @@
+#!/bin/bash
+
+launchctl load /usr/local/opt/mongodb/homebrew.mxcl.mongodb.plist
+
+launchctl start homebrew.mxcl.mongodb
