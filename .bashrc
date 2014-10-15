@@ -29,7 +29,7 @@ alias lls="lla"
 alias realsync="perl /usr/local/realsync/realsync"
 alias simplehttpserver="python -m SimpleHTTPServer"
 
-grep_exclusions="--exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.idea*' --exclude='*tmp*'"
+grep_exclusions="--exclude='*log*' --exclude='*demos*' --exclude='*compiled*' --exclude='*libs*' --exclude='*.idea*' --exclude='*tmp*' --exclude='*node_modules*'"
 
 alias gr="grep-manual . -r $grep_exclusions"
 alias grl="grep-manual . -rl $grep_exclusions"
