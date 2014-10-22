@@ -31,8 +31,8 @@ alias simplehttpserver="python -m SimpleHTTPServer"
 
 alias gr="grep-manual"
 alias grl="grep-manual -l"
-alias grc="gr --exclude='*.js'"
-alias grcl="grl --exclude='*.js'"
+alias grc="gr --exclude='*.js' --exclude='*.css'"
+alias grcl="grl --exclude='*.js' --exclude='*.css'"
 
 alias bower="noglob bower"
 
