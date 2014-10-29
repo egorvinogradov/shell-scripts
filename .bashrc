@@ -34,6 +34,8 @@ alias grl="grep-manual -l"
 alias grc="gr --exclude='*.js' --exclude='*.css'"
 alias grcl="grl --exclude='*.js' --exclude='*.css'"
 
+alias chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
+
 alias bower="noglob bower"
 
 
