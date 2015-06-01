@@ -38,6 +38,9 @@ alias chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Def
 
 alias bower="noglob bower"
 
+alias runserver="workon leadgenius && python ~/leadgenius/Premiere/premiere/manage.py runserver"
+alias runtest="premiere/testing/run_tests.bsh"
+
 
 # Vars
 export EDITOR=mcedit
@@ -48,7 +51,6 @@ export EDITOR=mcedit
 # Remote Ubuntu server
 # --------------------
 
-# alias runserver="fuser -k 9999/tcp; python ~/amazinghiring/frontend/apps/ah/manage.py runserver 0.0.0.0:9999"
 # alias ls="ls --color=auto"
 # alias lla="ls -la"
 # alias grep="grep --color=auto"
