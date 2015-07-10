@@ -1,0 +1,12 @@
+#!/bin/bash
+
+pid=$(ps aux | grep "./manage.py runserver" | grep -v grep | head -1 | xargs | cut -f2 -d" ")
+
+if [[ -n "$pid" ]]; then
+    kill -9 $pid
+fi
+
+cd ~/leadgenius/Premiere
+source /usr/local/bin/virtualenvwrapper.sh
+workon leadgenius
+python ./premiere/manage.py runserver

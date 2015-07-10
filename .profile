@@ -38,8 +38,8 @@ alias chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Def
 
 alias bower="noglob bower"
 
-alias runserver="workon leadgenius && python ~/leadgenius/Premiere/premiere/manage.py runserver"
 alias runtest="premiere/testing/run_tests.bsh"
+alias migrate="workon leadgenius && python premiere/manage.py migrate"
 alias srvgrunt="source .envrc && grunt serve"
 
 
