@@ -40,7 +40,7 @@ alias bower="noglob bower"
 
 alias runserver="workon leadgenius && python ~/leadgenius/Premiere/premiere/manage.py runserver"
 alias runtest="premiere/testing/run_tests.bsh"
-alias srvgrunt="grunt serve"
+alias srvgrunt="source .envrc && grunt serve"
 
 
 # Vars
