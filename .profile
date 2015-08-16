@@ -34,14 +34,14 @@ alias grl="grep-manual -l"
 alias grc="gr --exclude='*.js' --exclude='*.css'"
 alias grcl="grl --exclude='*.js' --exclude='*.css'"
 
-alias chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
-
 alias bower="noglob bower"
 
 alias runtest="premiere/testing/run_tests.bsh"
 alias migrate="workon leadgenius && python premiere/manage.py migrate"
 alias srvgrunt="source .envrc && grunt serve"
 
+alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
+alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
 
 # Vars
 export EDITOR=mcedit
