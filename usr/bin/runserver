@@ -2,10 +2,14 @@
 
 port=$1
 
-pid=$(ps aux | grep "./manage.py runserver" | grep -v grep | head -1 | xargs | cut -f2 -d" ")
+if [ -z "$port" ]; then
+  port=8081
+fi
 
-if [[ -n "$pid" ]]; then
-    kill -9 $pid
+django_pid="$(lsof -i -n -P | grep $port | grep -v grep | head -1 | xargs | cut -f2 -d" ")"
+
+if [[ -n "$django_pid" ]]; then
+    kill -9 $django_pid
 fi
 
 cd ~/leadgenius/Premiere
