@@ -1,0 +1,4 @@
+#!/bin/bash
+
+current_branch=`git branch | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/'`;
+git push origin $current_branch:staging -f
