@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Kills old summa test django process and runs summa test again
+# Needs to be put to /usr/bin
+# Should be run from whatever project *root* directory
+# 
+# Example:
+# cd mailgenius
+# summa_test
+
+port=$1
+
+if [ -z "$port" ]; then
+  port=8081
+fi
+
+default_port=8081
+current_directory=`basename $PWD`
+django_pid="$(lsof -i -n -P | grep $port | grep -v grep | head -1 | xargs | cut -f2 -d" ")"
+
+if [[ -n "$django_pid" ]]; then
+    kill -9 $django_pid
+fi
+
+source /usr/local/bin/virtualenvwrapper.sh
+workon leadgenius
+cd ../$current_directory
+source .env
+
+$SUMMA_TEST_ROOT/test.sh

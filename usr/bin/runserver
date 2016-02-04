@@ -1,0 +1,18 @@
+#!/bin/bash
+
+port=$1
+
+if [ -z "$port" ]; then
+  port=8081
+fi
+
+django_pid="$(lsof -i -n -P | grep $port | grep -v grep | head -1 | xargs | cut -f2 -d" ")"
+
+if [[ -n "$django_pid" ]]; then
+    kill -9 $django_pid
+fi
+
+cd ~/leadgenius/Premiere
+source /usr/local/bin/virtualenvwrapper.sh
+workon leadgenius
+python ./premiere/manage.py runserver $port
