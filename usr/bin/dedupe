@@ -1,0 +1,4 @@
+#!/bin/bash
+
+content=`sort "$1" | uniq`
+echo "$content" > "$1"
