@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Usage:
+# > mysql_sync --pull .dbsync.json
+# > mysql_sync --push .dbsync.json
+
+dump_name='db_dump.sql'
+
+direction=$1
+config_name=$2
+
+
+if [[ ! $config_name ]];
+  then
+    echo "Please set the path to the congig name. Use .dbsync-example.json as an example of the config file.";
+    exit 1
+fi
+
+
+production_db_host=`cat $config_name | jq -r '.production_db.host'`
+production_db_name=`cat $config_name | jq -r '.production_db.name'`
+production_db_user=`cat $config_name | jq -r '.production_db.user'`
+production_db_password=`cat $config_name | jq -r '.production_db.password'`
+
+localhost_db_name=`cat $config_name | jq -r '.localhost_db.name'`
+localhost_db_user=`cat $config_name | jq -r '.localhost_db.user'`
+localhost_db_password=`cat $config_name | jq -r '.localhost_db.password'`
+
+localhost_site_url=`cat $config_name | jq -r '.replacements.site_url.localhost'`
+production_site_url=`cat $config_name | jq -r '.replacements.site_url.production'`
+
+
+if [ "$direction" = "--pull" ]
+    then
+      echo "Pulling a database from $production_db_host..."
+
+      mysqldump -u $production_db_user -p$production_db_password -h $production_db_host $production_db_name > $dump_name
+      echo "Created a dump file $dump_name."
+
+      replace "$production_site_url" "$localhost_site_url" -- $dump_name
+      echo "Replaced $production_site_url with $localhost_site_url in the dump."
+
+      mysql -u $localhost_db_user -p$localhost_db_password $localhost_db_name < $dump_name
+      echo "Imported $dump_name into the local MySQL."
+
+    elif [ "$1" = "--push" ]
+    then
+
+      echo "Pushing a local database to $production_db_host..."
+
+      mysqldump -u $localhost_db_user -p$localhost_db_password $localhost_db_name > $dump_name
+      echo "Created a dump file $dump_name."
+
+      replace "$localhost_site_url" "$production_site_url" -- $dump_name
+      echo "Replaced $localhost_site_url with $production_site_url in the dump."
+
+      mysql -u $production_db_user -h $production_db_host -p$production_db_password $production_db_name < $dump_name
+
+      echo "Imported $dump_name into $production_db_host."
+
+    else
+        echo "
+  Set --pull or --push option
+
+  --pull    - to pull the production database to local server
+  --push    - to push the local database to the server
+  "
+        exit
+fi
+
+echo "Finished."
