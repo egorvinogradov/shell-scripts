@@ -1,20 +1,22 @@
 #!/bin/bash
 
-# Usage:
-# > mysql_sync --pull .dbsync.json
-# > mysql_sync --push .dbsync.json
+# USAGE
+#
+# To pull the production database to local server:
+# > mysql_sync --pull
+#
+# To push the local database to the server
+# > mysql_sync --push
+#
+# To upload exiting .sql dump on the server
+# > mysql_sync --upload path/to/dump.sql
 
+
+config_name='dbsync.json'
 dump_name='db_dump.sql'
 
 direction=$1
-config_name=$2
-
-
-if [[ ! $config_name ]];
-  then
-    echo "Please set the path to the congig name. Use .dbsync-example.json as an example of the config file.";
-    exit 1
-fi
+existing_sql_dump=$2
 
 
 production_db_host=`cat $config_name | jq -r '.production_db.host'`
@@ -57,6 +59,22 @@ if [ "$direction" = "--pull" ]
       mysql -u $production_db_user -h $production_db_host -p$production_db_password $production_db_name < $dump_name
 
       echo "Imported $dump_name into $production_db_host."
+
+    elif [ "$1" = "--upload" ]
+    then
+
+      if [[ ! $existing_sql_dump ]];
+        then
+          echo "Please set the path to the existing SQL dump e.g. mysql_sync --upload db_dump.sql";
+          exit 1
+      fi
+
+      replace "$localhost_site_url" "$production_site_url" -- $existing_sql_dump
+      echo "Replaced $localhost_site_url with $production_site_url in $existing_sql_dump."
+
+      mysql -u $production_db_user -h $production_db_host -p$production_db_password $production_db_name < $existing_sql_dump
+
+      echo "Uploaded $existing_sql_dump into $production_db_host."
 
     else
         echo "
