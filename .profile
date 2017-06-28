@@ -20,6 +20,7 @@ alias ggmerge="git merge"
 alias ggtstash="git stash"
 alias ggamend="git commit -a --amend"
 alias ggundo="git reset HEAD~"
+alias ggheroku="git push heroku master"
 
 # Directories
 

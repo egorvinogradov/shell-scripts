@@ -13,7 +13,7 @@
 # 1. Python interpreter —> ./virtualenvs/.ahfrontend
 # 2. Appearance —> Theme —> Dracula
 # 3. Editor -> Code Completion -> Parameter Info -> Autopopup in ms
-# 4. Code style -> CoffeeScript -> Tab size ( Scheme -> Default (5), Wrapping and braces )
+# 4. Code style -> CoffeeScript -> Tab size ( Scheme -> Default (4), Wrapping and braces )
 # 5. Editor -> Colors and fonts -> General -> monokai_custom
 
 path="$HOME/Library/Preferences/PyCharm20"
