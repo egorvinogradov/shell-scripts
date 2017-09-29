@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# USAGE:
+
+# Convert all SVG to EPS in current folder
+# > svg2eps *.svg
+
+# Convert all SVG to EPS in current folder and remove original SVGs
+# > svg2eps *.svg --remove-svg
+
+# Requires inkscape:
+# > brew install caskformula/caskformula/inkscape
+
+for file in "$@"; do
+  if [ -e "$file" ]
+  then
+      inkscape "$file" -E "0-${file%.svg}.eps" --export-ignore-filters --export-ps-level=3
+      echo $file "ok"
+  else
+    if [ "$file" == "--remove-svg" ]
+    then
+      rm *.svg
+    fi
+  fi
+done
