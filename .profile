@@ -2,9 +2,7 @@
 # Local Mac
 # ---------
 
-
 # git
-
 alias ggbranch="git branch"
 alias ggcheckout="git checkout"
 alias ggfetch="git fetch"
@@ -22,27 +20,28 @@ alias ggtstash="git stash"
 alias ggamend="git commit -a --amend"
 alias ggundo="git reset HEAD~"
 alias ggheroku="git push heroku master"
-
+unalias ggsup
 
 # Directories
-
 alias lla="ls -la -G"
 alias la="ls -a -G"
 alias ls="ls -G"
 alias lls="lla"
 
-
 # Development
-
 alias simplehttpserver="python -m SimpleHTTPServer"
-
 alias gr="grep-manual"
 alias grl="grep-manual -l"
 alias grc="gr --exclude='*.js' --exclude='*.css'"
 alias grcl="grl --exclude='*.js' --exclude='*.css'"
-
+alias bower="noglob bower"
 alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
+alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
 
+# MySQL
+alias mysql="/Applications/MAMP/Library/bin/mysql"
+alias replace="/Applications/MAMP/Library/bin/replace"
+alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
 
 # Vars
 export EDITOR=mcedit
