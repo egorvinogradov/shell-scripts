@@ -10,6 +10,10 @@
 #
 # To upload exiting .sql dump on the server
 # > mysql_sync --upload path/to/dump.sql
+#
+# INSTALLATION
+# 1. Install MAMP
+# 2. mysql, replace and mysqldump are located in /Applications/MAMP/Library/bin/
 
 
 config_name='dbsync.json'
@@ -18,6 +22,10 @@ dump_name='db_dump.sql'
 direction=$1
 existing_sql_dump=$2
 
+# Sourcing MySQL CLI tools from MAMP directory
+alias mysql="/Applications/MAMP/Library/bin/mysql"
+alias replace="/Applications/MAMP/Library/bin/replace"
+alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
 
 production_db_host=`cat $config_name | jq -r '.production_db.host'`
 production_db_name=`cat $config_name | jq -r '.production_db.name'`
