@@ -22,10 +22,18 @@ dump_name='db_dump.sql'
 direction=$1
 existing_sql_dump=$2
 
+
 # Sourcing MySQL CLI tools from MAMP directory
-alias mysql="/Applications/MAMP/Library/bin/mysql"
-alias replace="/Applications/MAMP/Library/bin/replace"
-alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
+mysql() {
+  /Applications/MAMP/Library/bin/mysql "$@"
+}
+replace(){
+  /Applications/MAMP/Library/bin/replace "$@"
+}
+mysqldump(){
+  /Applications/MAMP/Library/bin/mysqldump "$@"
+}
+
 
 production_db_host=`cat $config_name | jq -r '.production_db.host'`
 production_db_name=`cat $config_name | jq -r '.production_db.name'`
