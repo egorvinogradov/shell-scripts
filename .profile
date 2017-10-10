@@ -37,6 +37,8 @@ alias grcl="grl --exclude='*.js' --exclude='*.css'"
 alias bower="noglob bower"
 alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
 alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
+alias pycharm="/Applications/PyCharm.app/Contents/MacOS/pycharm"
+alias phpstorm="pstorm"
 
 # MySQL
 alias mysql="/Applications/MAMP/Library/bin/mysql"
