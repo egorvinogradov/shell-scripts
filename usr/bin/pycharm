@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Run PyCharm from command line
+#
+# Usage: pycharm <directory>
+# Examples: 
+#   pycharm .
+#   pycharm ~/app
+#   pycharm /Users/username/projects/project-name
+
+dir="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+/Applications/PyCharm.app/Contents/MacOS/pycharm $dir &
