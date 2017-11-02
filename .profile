@@ -46,3 +46,6 @@ alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
 
 # Vars
 export EDITOR=mcedit
+
+# direnv hook
+eval "$(direnv hook zsh)"
