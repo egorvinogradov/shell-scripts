@@ -20,7 +20,11 @@ alias ggtstash="git stash"
 alias ggamend="git commit -a --amend"
 alias ggundo="git reset HEAD~"
 alias ggheroku="git push heroku master"
+
+# Rewrite
 unalias ggsup
+alias ggf='echo'
+alias ggfl='echo'
 
 # Directories
 alias lla="ls -la -G"
@@ -45,6 +49,8 @@ alias replace="/Applications/MAMP/Library/bin/replace"
 alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
 
 # Vars
+source /usr/local/bin/virtualenvwrapper.sh
+export WORKON_HOME="~/.virtualenvs"
 export EDITOR=mcedit
 
 # direnv hook
