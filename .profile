@@ -52,6 +52,7 @@ alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
 source /usr/local/bin/virtualenvwrapper.sh
 export WORKON_HOME="~/.virtualenvs"
 export EDITOR=mcedit
+export PYTHONPATH="/usr/local/bin/python:$PYTHONPATH"
 
 # direnv hook
 eval "$(direnv hook zsh)"
