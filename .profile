@@ -22,9 +22,9 @@ alias ggundo="git reset HEAD~"
 alias ggheroku="git push heroku master"
 
 # Rewrite
-unalias ggsup
 alias ggf='echo'
 alias ggfl='echo'
+unalias ggsup
 
 # Directories
 alias lla="ls -la -G"
@@ -49,10 +49,14 @@ alias replace="/Applications/MAMP/Library/bin/replace"
 alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
 
 # Vars
-source /usr/local/bin/virtualenvwrapper.sh
 export WORKON_HOME="~/.virtualenvs"
 export EDITOR=mcedit
 export PYTHONPATH="/usr/local/bin/python:$PYTHONPATH"
 
-# direnv hook
-eval "$(direnv hook zsh)"
+# direnv
+#eval (direnv hook fish)        # fish direnv hook
+eval "$(direnv hook zsh)"       # zsh direnv hook
+
+# virtualenv
+#eval (python -m virtualfish)                   # fish virtualenv hook
+source /usr/local/bin/virtualenvwrapper.sh      # zsh virtualenv hook
