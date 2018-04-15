@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# USAGE
+#
+# To sync Heroku Postgres with a local DB:
+# > postgres_sync lead-backend-dev lead
+
+heroku_app_name=$1
+local_db_name=$2
+
+if [ -z "$heroku_app_name" ];
+  then
+    echo "Please set Heroku app name, e.g. postgres_sync lead-backend-dev lead";
+  exit 1
+fi
+
+if [ -z "$local_db_name" ];
+  then
+    echo "Please set local database name, e.g. postgres_sync lead-backend-dev lead";
+  exit 1
+fi
+
+echo "Applying dump from $heroku_app_name to $local_db_name";
+
+heroku pg:backups:capture -a $heroku_app_name
+heroku pg:backups:download -a $heroku_app_name
+pg_restore --verbose --clean --no-acl --no-owner -h localhost -d $local_db_name latest.dump
+rm latest.dump
