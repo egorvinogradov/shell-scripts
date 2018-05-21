@@ -14,6 +14,8 @@ import os
 
 key_from = sys.argv[1]
 key_to = sys.argv[2]
+is_one_way = len(sys.argv) >= 4 and (sys.argv[3] == '--one-way');
+
 
 def convert(val):
   int_val = int(val, 16)
@@ -21,7 +23,8 @@ def convert(val):
   int_ref = int(ref, 16)
   return hex(int_ref | int_val)
 
-def remap_keys(hex_from, hex_to):
+
+def swap_keys(hex_from, hex_to):
   cmd = """hidutil property --set '{"UserKeyMapping":
     [{"HIDKeyboardModifierMappingSrc":%s,
       "HIDKeyboardModifierMappingDst":%s},
@@ -32,7 +35,19 @@ def remap_keys(hex_from, hex_to):
   os.system(cmd)
 
 
+def remap_keys(hex_from, hex_to):
+  cmd = """hidutil property --set '{"UserKeyMapping":
+    [{"HIDKeyboardModifierMappingSrc":%s,
+      "HIDKeyboardModifierMappingDst":%s}]
+}'""" % (hex_from, hex_to)
+  print cmd
+  os.system(cmd)
+
+
 if (key_from and key_to):
   hex_from = convert(key_from)
   hex_to = convert(key_to)
-  remap_keys(hex_from, hex_to)
+  if is_one_way:
+    remap_keys(hex_from, hex_to)
+  else:
+    swap_keys(hex_from, hex_to)
