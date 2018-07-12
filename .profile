@@ -33,7 +33,7 @@ alias ls="ls -G"
 alias lls="lla"
 
 # Development
-alias simplehttpserver="python -m SimpleHTTPServer"
+alias simplehttpserver="python -m http.server"
 alias gr="grep-manual"
 alias grl="grep-manual -l"
 alias grc="gr --exclude='*.js' --exclude='*.css'"
