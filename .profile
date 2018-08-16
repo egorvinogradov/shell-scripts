@@ -60,3 +60,7 @@ eval "$(direnv hook zsh)"       # zsh direnv hook
 # virtualenv
 #eval (python -m virtualfish)                   # fish virtualenv hook
 source /usr/local/bin/virtualenvwrapper.sh      # zsh virtualenv hook
+
+
+# Output current folder name as terminal tab title
+precmd () { echo -ne "\e]1;${PWD##*/}\a" }
