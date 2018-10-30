@@ -54,13 +54,18 @@ export EDITOR=mcedit
 export PYTHONPATH="/usr/local/bin/python:$PYTHONPATH"
 
 # direnv
-#eval (direnv hook fish)        # fish direnv hook
-eval "$(direnv hook zsh)"       # zsh direnv hook
+# eval (direnv hook fish)         # fish direnv hook
+# eval "$(direnv hook zsh)"       # zsh direnv hook
 
 # virtualenv
-#eval (python -m virtualfish)                   # fish virtualenv hook
-source /usr/local/bin/virtualenvwrapper.sh      # zsh virtualenv hook
+# eval (python -m virtualfish)                    # fish virtualenv hook
+# source /usr/local/bin/virtualenvwrapper.sh      # zsh virtualenv hook
 
 
 # Output current folder name as terminal tab title
 precmd () { echo -ne "\e]1;${PWD##*/}\a" }
+
+
+# Set EXTENDED_GLOB to use excluding wildcards
+setopt extendedglob
+alias ssha="ssh-add ~/.ssh/^(*.pub|known_hosts)" # add all existing SSH certificates
