@@ -68,4 +68,4 @@ precmd () { echo -ne "\e]1;${PWD##*/}\a" }
 
 # Set EXTENDED_GLOB to use excluding wildcards
 setopt extendedglob
-alias ssha="ssh-add ~/.ssh/^(*.pub|known_hosts)" # add all existing SSH certificates
+alias ssha="ssh-add ~/.ssh/^(*.pub|known_hosts|config)" # add all existing SSH certificates
