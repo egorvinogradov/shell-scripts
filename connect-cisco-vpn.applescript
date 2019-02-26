@@ -4,7 +4,7 @@
 tell application "System Events"
   set CurrentClipboard to the clipboard as string
   set the clipboard to "$$$$$$$"                    -- replace $$$$$$$ w/ your password
-  do shell script "scutil --nc start BostonGeneVPN" -- replace BostonGeneVPN w/ your VPN service name from Network tab
+  do shell script "scutil --nc start BostonGene"    -- replace BostonGene w/ your VPN service name from Network tab (see screenshot: https://i.imgur.com/jQK5DL9.png)
   delay 3
 
   tell application id "com.apple.systemevents"
