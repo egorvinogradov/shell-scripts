@@ -44,6 +44,8 @@ alias phpstorm="pstorm"
 alias simulator_android="~/Library/Android/sdk/emulator/emulator -avd Nexus_5X_API_28_x86 &"
 alias simulator_ios="open -a Simulator"
 
+cheat () { curl "cheat.sh/$1" }
+
 # MySQL
 alias mysql="/Applications/MAMP/Library/bin/mysql"
 alias replace="/Applications/MAMP/Library/bin/replace"
