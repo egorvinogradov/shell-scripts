@@ -18,7 +18,12 @@ alias ggmerge="git merge"
 alias ggtstash="git stash"
 alias ggamend="git commit -a --amend"
 alias ggundo="git reset HEAD~"
-alias ggheroku="git push heroku master"
+
+gggdeletebranch () {
+  git branch -d $1
+  git push origin --delete $1
+}
+
 
 # Rewrite
 alias ggf='echo'
