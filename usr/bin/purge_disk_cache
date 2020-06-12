@@ -1,0 +1,7 @@
+#!/bin/bash
+
+rm -rf ~/Library/Caches/com.spotify.client/Data
+
+rm -rf ~/Library/Group\ Containers/*.ru.keepcoder.Telegram/account-*/postbox/media
+
+rm -rf ~/Library/Application\ Support/Skype/egor*/media_messaging/emo_cache_v2
