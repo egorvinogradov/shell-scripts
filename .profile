@@ -50,6 +50,7 @@ alias simulator_android="~/Library/Android/sdk/emulator/emulator -avd Nexus_5X_A
 alias simulator_ios="open -a Simulator"
 
 cheat () { curl "cheat.sh/$1" }
+zoom_join () { open "zoommtg://zoom.us/join?confno=$1" }
 
 # MySQL
 alias mysql="/Applications/MAMP/Library/bin/mysql"
