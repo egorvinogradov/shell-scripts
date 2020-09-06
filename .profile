@@ -31,7 +31,7 @@ alias ggfl='echo'
 unalias ggsup
 
 # Directories
-alias lla="ls -la -G"
+alias lla="ls -lha -G"
 alias la="ls -a -G"
 alias ls="ls -G"
 alias lls="lla"
