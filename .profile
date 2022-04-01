@@ -48,6 +48,7 @@ alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
 alias phpstorm="pstorm"
 alias simulator_android="~/Library/Android/sdk/emulator/emulator -avd Nexus_5X_API_28_x86 &"
 alias simulator_ios="open -a Simulator"
+alias folder_size="du -sh"
 
 cheat () { curl "cheat.sh/$1" }
 zoom_join () { open "zoommtg://zoom.us/join?confno=$1" }
