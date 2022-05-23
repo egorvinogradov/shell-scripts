@@ -45,7 +45,7 @@ alias grcl="grl --exclude='*.js' --exclude='*.css'"
 alias bower="noglob bower"
 alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
 alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
-alias phpstorm="pstorm"
+
 alias simulator_android="~/Library/Android/sdk/emulator/emulator -avd Nexus_5X_API_28_x86 &"
 alias simulator_ios="open -a Simulator"
 alias folder_size="du -sh"
