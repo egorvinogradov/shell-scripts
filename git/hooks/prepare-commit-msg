@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+import re
+import subprocess
+import sys
+ 
+ 
+def main():
+  def search(x):
+    return re.search(r'(GAMBIT)(_|-)(\d+)$', x, re.IGNORECASE)
+ 
+  res = search(
+    subprocess.Popen(
+      ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+      stdout=subprocess.PIPE,
+    ).communicate()[0].decode()
+  )
+  if res:
+    groups = res.groups()
+    issue = groups[0].upper() + '-' + groups[2]
+    lines = open(sys.argv[1], 'r').readlines()
+    if search(lines[0]):
+      return
+    lines[0] = issue + ' ' + lines[0].strip() + "\n"
+    with open(sys.argv[1], 'w') as f:
+      f.writelines(lines)
+ 
+ 
+main()
