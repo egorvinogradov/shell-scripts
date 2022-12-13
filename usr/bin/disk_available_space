@@ -1,0 +1,16 @@
+#!/bin/bash
+
+available_space=$(df | awk '/\/dev\/disk*/ && ! /\/private\/var\/vm/ {
+
+        s_byte = $2 * 512            # covert blocks to bytes
+        a_byte = $4 * 512
+        ta_byte+=a_byte              # to their total
+        }
+
+        END {
+
+        ta_byte=ta_byte/1000000000
+        print ta_byte
+}')
+
+printf "%.2f GB are available\n" $available_space
