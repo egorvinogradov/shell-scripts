@@ -18,6 +18,7 @@ alias ggmerge="git merge"
 alias ggtstash="git stash"
 alias ggamend="git commit -a --amend"
 alias ggundo="git reset HEAD~"
+alias gglines="git ls-files | xargs cat | wc -l"
 
 gggdeletebranch () {
   git branch -d $1
