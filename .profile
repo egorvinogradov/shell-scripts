@@ -24,6 +24,18 @@ gggdeletebranch () {
   git push origin --delete $1
 }
 
+folder_size () {
+  du -sh "$@" | sort -hr
+}
+
+cheat () {
+  curl "cheat.sh/$1"
+}
+
+zoom_join () {
+  open "zoommtg://zoom.us/join?confno=$1"
+}
+
 
 # Rewrite
 alias ggf='echo'
@@ -48,10 +60,6 @@ alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
 alias phpstorm="open -a 'Phpstorm.app'"
 alias simulator_android="~/Library/Android/sdk/emulator/emulator -avd Nexus_5X_API_28_x86 &"
 alias simulator_ios="open -a Simulator"
-alias folder_size="du -sh"
-
-cheat () { curl "cheat.sh/$1" }
-zoom_join () { open "zoommtg://zoom.us/join?confno=$1" }
 
 # MySQL
 alias mysql="/Applications/MAMP/Library/bin/mysql"
