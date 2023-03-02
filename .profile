@@ -72,6 +72,12 @@ export WORKON_HOME="~/.virtualenvs"
 export EDITOR=mcedit
 export PYTHONPATH="/usr/local/bin/python:$PYTHONPATH"
 
+# OPTIONAL: ImageMagick on Mojave
+# export MAGICK_HOME="/usr/local/bin/ImageMagick-7.0.10"
+# export PATH="$MAGICK_HOME/bin:$PATH"
+# export DYLD_LIBRARY_PATH="$MAGICK_HOME/lib/"
+
+
 # direnv
 # eval (direnv hook fish)         # fish direnv hook
 # eval "$(direnv hook zsh)"       # zsh direnv hook
