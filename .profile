@@ -37,6 +37,18 @@ zoom_join () {
   open "zoommtg://zoom.us/join?confno=$1"
 }
 
+unlock_hosts() {
+  echo "Unlocking hosts file..."
+  sudo chflags nouchg /etc/hosts
+  sudo chflags noschg /etc/hosts
+  sublime /etc/hosts
+}
+
+lock_hosts() {
+  echo "Locking hosts file..."
+  sudo chflags uchg /etc/hosts
+  sudo chflags schg /etc/hosts
+}
 
 # Rewrite
 alias ggf='echo'
