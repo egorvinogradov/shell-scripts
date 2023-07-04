@@ -50,11 +50,6 @@ lock_hosts() {
   sudo chflags schg /etc/hosts
 }
 
-# Rewrite
-alias ggf='echo'
-alias ggfl='echo'
-unalias ggsup
-
 # Directories
 alias lla="ls -lha -G"
 alias la="ls -a -G"
@@ -63,46 +58,13 @@ alias lls="lla"
 
 # Development
 alias simplehttpserver="python3 -m http.server"
-alias gr="grep-manual"
-alias grl="grep-manual -l"
-alias grc="gr --exclude='*.js' --exclude='*.css'"
-alias grcl="grl --exclude='*.js' --exclude='*.css'"
-alias bower="noglob bower"
 alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
-alias wifi_watch="sudo node ~/repos/wifi-watch/wifi-watch.js &"
 alias phpstorm="open -a 'Phpstorm.app'"
-alias simulator_android="~/Library/Android/sdk/emulator/emulator -avd Nexus_5X_API_28_x86 &"
-alias simulator_ios="open -a Simulator"
 
-# MySQL
-alias mysql="/Applications/MAMP/Library/bin/mysql"
-alias replace="/Applications/MAMP/Library/bin/replace"
-alias mysqldump="/Applications/MAMP/Library/bin/mysqldump"
-
-# Vars
-export WORKON_HOME="~/.virtualenvs"
-export EDITOR=mcedit
-export PYTHONPATH="/usr/local/bin/python:$PYTHONPATH"
-
-# OPTIONAL: ImageMagick on Mojave
-# export MAGICK_HOME="/usr/local/bin/ImageMagick-7.0.10"
-# export PATH="$MAGICK_HOME/bin:$PATH"
-# export DYLD_LIBRARY_PATH="$MAGICK_HOME/lib/"
+# Add all existing SSH certificates
+ssha() {
+  find ~/.ssh -type f ! -name "*.pub" ! -name "*.pem" ! -name "*.old" ! -name "known_hosts" ! -name "config" -exec ssh-add {} \;
+}
 
 
-# direnv
-# eval (direnv hook fish)         # fish direnv hook
-# eval "$(direnv hook zsh)"       # zsh direnv hook
-
-# virtualenv
-# eval (python -m virtualfish)                    # fish virtualenv hook
-# source /usr/local/bin/virtualenvwrapper.sh      # zsh virtualenv hook
-
-
-# Output current folder name as terminal tab title
-precmd () { echo -ne "\e]1;${PWD##*/}\a" }
-
-
-# Set EXTENDED_GLOB to use excluding wildcards
-setopt extendedglob
-alias ssha="ssh-add ~/.ssh/^(*.pub|known_hosts|config)" # add all existing SSH certificates
+export PATH="/opt/scripts:$PATH"
