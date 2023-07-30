@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Check if a file was provided as an argument
+if [ $# -eq 0 ]; then
+    echo "No arguments provided"
+    exit 1
+fi
+
+# Loop over all provided arguments
+for input_file in "$@"
+do
+    # Check if the file exists
+    if [ ! -f "$input_file" ]; then
+        echo "File $input_file does not exist"
+        continue
+    fi
+
+    # Get the directory, filename without the extension
+    dir=$(dirname -- "$input_file")
+    filename=$(basename -- "$input_file")
+    extension="${filename##*.}"
+    filename="${filename%.*}"
+
+    # Define the output file
+    output_file="${dir}/${filename}_compressed.mp4"
+
+    # Run the ffmpeg command
+    ffmpeg -i "$input_file" -vcodec libx264 -crf 28 -preset slow -acodec aac -strict experimental -b:a 96k -movflags +faststart "$output_file"
+done
