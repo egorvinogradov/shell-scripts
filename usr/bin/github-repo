@@ -1,1 +1,3 @@
-open "https://github.com/egorvinogradov/$(basename "$PWD")/commits/master"
+#!/bin/bash
+current_branch=$(git symbolic-ref --short HEAD)
+open "https://github.com/egorvinogradov/$(basename "$PWD")/commits/$current_branch"
