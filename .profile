@@ -29,6 +29,10 @@ folder_size () {
   du -sh "$@" | sort -hr
 }
 
+ssha() {
+  find ~/.ssh -type f ! -name "*.pub" ! -name "*.pem" ! -name "*.old" ! -name "known_hosts" ! -name "config" -exec ssh-add {} \;
+}
+
 cheat () {
   curl "cheat.sh/$1"
 }
@@ -59,12 +63,9 @@ alias lls="lla"
 # Development
 alias simplehttpserver="python3 -m http.server"
 alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
-alias phpstorm="open -a 'Phpstorm.app'"
 
-# Add all existing SSH certificates
-ssha() {
-  find ~/.ssh -type f ! -name "*.pub" ! -name "*.pem" ! -name "*.old" ! -name "known_hosts" ! -name "config" -exec ssh-add {} \;
-}
+# Enable divenv
+eval "$(direnv hook zsh)"
 
-
-export PATH="/opt/scripts:$PATH"
+# Open Interpreter
+export OPENAI_API_KEY=
