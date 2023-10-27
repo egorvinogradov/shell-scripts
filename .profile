@@ -67,5 +67,14 @@ alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/
 # Enable divenv
 eval "$(direnv hook zsh)"
 
+# Show virtualenv name when using direnv
+show_virtual_env() {
+  if [[ -n "$VIRTUAL_ENV" && -n "$DIRENV_DIR" ]]; then
+    echo "($(basename $VIRTUAL_ENV)) "
+  fi
+}
+export show_virtual_env
+PS1='$(show_virtual_env)'$PS1
+
 # Open Interpreter
 export OPENAI_API_KEY=
