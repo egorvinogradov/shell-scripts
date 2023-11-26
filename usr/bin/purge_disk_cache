@@ -3,5 +3,9 @@
 rm -rf ~/Library/Caches/com.spotify.client/Data
 
 rm -rf ~/Library/Group\ Containers/*.ru.keepcoder.Telegram/account-*/postbox/media
+rm -rf ~/Library/Caches/ru.keepcoder.Telegram/org.sparkle-project.Sparkle/PersistentDownloads
 
 rm -rf ~/Library/Application\ Support/Skype/egor*/media_messaging/emo_cache_v2
+
+rm -rf ~/java_error_in_webstorm.hprof
+rm -rf ~/.npm/_cacache
