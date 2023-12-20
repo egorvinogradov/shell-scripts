@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Check if a file name is provided
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <filename.gif>"
+  exit 1
+fi
+
+INPUT_FILE=$1
+OUTPUT_FILE="${INPUT_FILE%.*}.mp4"
+
+# Convert GIF to MP4
+ffmpeg -i "$INPUT_FILE" -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" "$OUTPUT_FILE"
+
+# Check if conversion was successful
+if [ -f "$OUTPUT_FILE" ]; then
+  echo "Conversion successful. Opening in VLC..."
+  open -a VLC "$OUTPUT_FILE"
+else
+  echo "Conversion failed."
+fi
