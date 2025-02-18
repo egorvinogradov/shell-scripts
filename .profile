@@ -78,3 +78,7 @@ PS1='$(show_virtual_env)'$PS1
 
 # Open Interpreter
 export OPENAI_API_KEY=
+
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
