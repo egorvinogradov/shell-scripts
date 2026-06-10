@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# corsair-clipboard — send text/file to Ubuntu server clipboard file via SSH
+# corsair-clipboard — send text/file to Ubuntu server clipboard + auto-copy
 # Usage:
 #   corsair-clipboard "some text"
 #   corsair-clipboard -f ~/Desktop/notes.txt
 #   echo "hello" | corsair-clipboard
 
 SSH_HOST="user@192.168.12.152"
-REMOTE_FILE="~/Downloads/clipboard-egor.txt"
+
+# Remote command: write stdin to file, then copy to clipboard in background
+# Finds XAUTHORITY for XWayland (needed when SSHing into a Wayland session)
+REMOTE_CMD='
+cat > $HOME/Downloads/clipboard-egor.txt &&
+XAUTH=$(ls /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -1) &&
+XAUTHORITY=${XAUTH:-$HOME/.Xauthority} DISPLAY=:0 nohup xclip -selection clipboard < $HOME/Downloads/clipboard-egor.txt >/dev/null 2>&1 &
+'
 
 usage() {
   echo "Usage: corsair-clipboard <text>"
@@ -17,25 +24,22 @@ usage() {
   exit 1
 }
 
-# Determine input
 if [ $# -eq 0 ]; then
-  # Pipe mode: read from stdin
+  # Pipe mode: forward stdin as-is
   if [ -t 0 ]; then
     usage
   fi
-  CONTENT=$(cat)
+  cat | ssh "$SSH_HOST" "$REMOTE_CMD"
 elif [ "$1" = "-f" ]; then
-  # File mode
+  # File mode: forward file content as-is
   [ $# -lt 2 ] && usage
   [ ! -f "$2" ] && echo "Error: file not found: $2" && exit 1
-  CONTENT=$(cat "$2")
+  cat "$2" | ssh "$SSH_HOST" "$REMOTE_CMD"
 elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   usage
 else
-  # Direct text mode
-  CONTENT="$*"
+  # Direct text mode: no trailing newline
+  printf "%s" "$*" | ssh "$SSH_HOST" "$REMOTE_CMD"
 fi
 
-# Send to server
-echo "$CONTENT" | ssh "$SSH_HOST" "cat > $REMOTE_FILE"
-echo "✓ Sent to $SSH_HOST:$REMOTE_FILE"
+echo "✓ Copied to $SSH_HOST clipboard"
