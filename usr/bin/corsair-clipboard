@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# corsair-clipboard — send text/file to Ubuntu server clipboard file via SSH
+# Usage:
+#   corsair-clipboard "some text"
+#   corsair-clipboard -f ~/Desktop/notes.txt
+#   echo "hello" | corsair-clipboard
+
+SSH_HOST="user@192.168.12.152"
+REMOTE_FILE="~/Downloads/clipboard-egor.txt"
+
+usage() {
+  echo "Usage: corsair-clipboard <text>"
+  echo "       corsair-clipboard -f <file>"
+  echo "       echo <text> | corsair-clipboard"
+  exit 1
+}
+
+# Determine input
+if [ $# -eq 0 ]; then
+  # Pipe mode: read from stdin
+  if [ -t 0 ]; then
+    usage
+  fi
+  CONTENT=$(cat)
+elif [ "$1" = "-f" ]; then
+  # File mode
+  [ $# -lt 2 ] && usage
+  [ ! -f "$2" ] && echo "Error: file not found: $2" && exit 1
+  CONTENT=$(cat "$2")
+elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  usage
+else
+  # Direct text mode
+  CONTENT="$*"
+fi
+
+# Send to server
+echo "$CONTENT" | ssh "$SSH_HOST" "cat > $REMOTE_FILE"
+echo "✓ Sent to $SSH_HOST:$REMOTE_FILE"
