@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# corsair-clipboard — send text/file to Ubuntu server clipboard + auto-copy
+# corsair-clipboard — send text/file to Ubuntu server clipboard via SSH
 # Usage:
 #   corsair-clipboard "some text"
 #   corsair-clipboard -f ~/Desktop/notes.txt
@@ -9,13 +9,9 @@ set -euo pipefail
 
 SSH_HOST="user@192.168.12.152"
 
-# Remote command: write stdin to file, then copy to clipboard in background
-# Finds XAUTHORITY for XWayland (needed when SSHing into a Wayland session)
-REMOTE_CMD='
-cat > $HOME/Downloads/clipboard-egor.txt &&
-XAUTH=$(ls /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -1) &&
-XAUTHORITY=${XAUTH:-$HOME/.Xauthority} DISPLAY=:0 nohup xclip -selection clipboard < $HOME/Downloads/clipboard-egor.txt >/dev/null 2>&1 &
-'
+# Pipe stdin directly to xclip (no intermediate file).
+# Kills any prior xclip zombie first, then discovers XAUTHORITY for Wayland.
+REMOTE_CMD='pkill -9 xclip 2>/dev/null; sleep 0.3; XAUTH=$(ls /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -1) && XAUTHORITY=${XAUTH:-$HOME/.Xauthority} DISPLAY=:0 xclip -selection clipboard'
 
 usage() {
   echo "Usage: corsair-clipboard <text>"
