@@ -1,8 +1,17 @@
-# ---------
-# Local Mac
-# ---------
+# Shared shell config — source from ~/.zshrc on each machine.
+# Machine-specific secrets/paths: ~/.zshrc.local (not in git).
+
+# Scripts (~/repos/shell-scripts/usr/bin → /usr/local/bin)
+export PATH="/usr/local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+
+# Node (nvm)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # git
+unalias ggsup 2>/dev/null
 alias ggbranch="git branch"
 alias ggcheckout="git checkout"
 alias ggfetch="git fetch"
@@ -17,8 +26,9 @@ alias ggresetfile="git checkout HEAD -- "
 alias ggmerge="git merge"
 alias ggtstash="git stash"
 alias ggamend="git commit -a --amend"
-alias ggundo="git reset HEAD~"
+alias ggundolast="git reset --soft HEAD~1"
 alias gglines="git ls-files | xargs cat | wc -l"
+alias gglastdiff="git diff HEAD^ HEAD -- . "
 
 gggdeletebranch () {
   git branch -d $1
@@ -30,7 +40,10 @@ folder_size () {
 }
 
 ssha() {
-  find ~/.ssh -type f ! -name "*.pub" ! -name "*.pem" ! -name "*.old" ! -name "known_hosts" ! -name "config" -exec ssh-add {} \;
+  find ~/.ssh -maxdepth 1 -type f \
+    ! -name '*.pub' ! -name '*.pem' ! -name '*.old' \
+    ! -name 'known_hosts' ! -name 'config' ! -name 'authorized_keys' \
+    -exec ssh-add -q {} +
 }
 
 cheat () {
@@ -64,10 +77,9 @@ alias lls="lla"
 alias simplehttpserver="python3 -m http.server"
 alias cd_chrome_extensions="cd $HOME/Library/Application\ Support/Google/Chrome/Default/Extensions"
 
-# Enable divenv
+# direnv + venv prompt prefix
 eval "$(direnv hook zsh)"
 
-# Show virtualenv name when using direnv
 show_virtual_env() {
   if [[ -n "$VIRTUAL_ENV" && -n "$DIRENV_DIR" ]]; then
     echo "($(basename $VIRTUAL_ENV)) "
@@ -75,10 +87,3 @@ show_virtual_env() {
 }
 export show_virtual_env
 PS1='$(show_virtual_env)'$PS1
-
-# Open Interpreter
-export OPENAI_API_KEY=
-
-# nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
