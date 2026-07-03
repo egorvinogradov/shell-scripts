@@ -24,8 +24,8 @@ end if
 if imgData is missing value then
     error "No image found in clipboard. Take a screenshot first (Cmd+Shift+4)."
 end if
-set timeStamp to (current application's NSDate's timeIntervalSinceReferenceDate()) as integer
-set fileName to ("qoder-" & (timeStamp as text) & ".png")
+set timeStamp to do shell script "date +%Y%m%d-%H%M%S"
+set fileName to ("qoder-" & timeStamp & ".png")
 set filePath to ("''' + OUTPUT_DIR + '''/" & fileName)
 set fileURL to current application's NSURL's fileURLWithPath:filePath
 imgData's writeToURL:fileURL atomically:true
