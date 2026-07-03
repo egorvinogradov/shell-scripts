@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""qoder-img-path: Saves clipboard image to /tmp, types file path into active field."""
+import subprocess, sys, os, tempfile
+
+OUTPUT_DIR = "/tmp"
+
+APPLESCRIPT = '''use framework "AppKit"
+use scripting additions
+set pb to current application's NSPasteboard's generalPasteboard()
+set imgData to missing value
+try
+    set imgData to pb's dataForType:"public.png"
+end try
+if imgData is missing value then
+    try
+        set imgData to pb's dataForType:"public.tiff"
+    end try
+end if
+if imgData is missing value then
+    try
+        set imgData to pb's dataForType:"public.jpeg"
+    end try
+end if
+if imgData is missing value then
+    error "No image found in clipboard. Take a screenshot first (Cmd+Shift+4)."
+end if
+set timeStamp to (current application's NSDate's timeIntervalSinceReferenceDate()) as integer
+set fileName to ("qoder-" & (timeStamp as text) & ".png")
+set filePath to ("''' + OUTPUT_DIR + '''/" & fileName)
+set fileURL to current application's NSURL's fileURLWithPath:filePath
+imgData's writeToURL:fileURL atomically:true
+return filePath'''
+
+def main():
+    as_file = tempfile.mktemp(suffix='.applescript')
+    try:
+        with open(as_file, 'w') as f:
+            f.write(APPLESCRIPT)
+        result = subprocess.run(["osascript", as_file], capture_output=True, text=True, timeout=15)
+        if result.returncode != 0:
+            print(f"Error: {result.stderr.strip() or result.stdout.strip()}", file=sys.stderr)
+            sys.exit(1)
+        file_path = result.stdout.strip()
+        if not file_path or not os.path.exists(file_path):
+            print("Error: Image saved but file not found.", file=sys.stderr)
+            sys.exit(1)
+        type_cmd = '''tell application "System Events" to keystroke "''' + file_path + '''"'''
+        subprocess.run(["osascript", "-e", type_cmd], capture_output=True, text=True, timeout=5)
+        print(f"OK {file_path}")
+    except subprocess.TimeoutExpired:
+        print("Error: Timed out.", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if os.path.exists(as_file):
+            os.remove(as_file)
+
+if __name__ == "__main__":
+    main()
