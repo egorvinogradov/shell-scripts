@@ -24,6 +24,34 @@ do
     # Define the output file
     output_file="${dir}/${filename}_compressed.mp4"
 
-    # Run the ffmpeg command
-    ffmpeg -i "$input_file" -vcodec libx264 -crf 28 -preset slow -acodec aac -strict experimental -b:a 96k -movflags +faststart "$output_file"
+    # Telegram treats MP4s without an audio track as GIFs (looping, no
+    # playback controls). If the input is silent, mux in a silent AAC
+    # track so the output plays as a normal video everywhere.
+    has_audio=$(/opt/homebrew/opt/ffmpeg@7/bin/ffprobe -v error -select_streams a \
+        -show_entries stream=index -of csv=p=0 "$input_file" 2>/dev/null | head -1)
+
+    if [ -n "$has_audio" ]; then
+        audio_input_args=()
+        audio_map_args=()
+    else
+        audio_input_args=(-f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100")
+        audio_map_args=(-map 0:v:0 -map 1:a:0 -shortest)
+    fi
+
+    # Detect HDR (PQ/HLG) input, e.g. from macOS Screenshot app's
+    # "Capture Format: HDR" option, and tone-map it down to SDR/BT.709.
+    # Without this, HDR pixel values get reinterpreted as SDR by most
+    # players, which makes the output look dark and desaturated.
+    transfer=$(/opt/homebrew/opt/ffmpeg@7/bin/ffprobe -v error -select_streams v:0 \
+        -show_entries stream=color_transfer -of default=nw=1:nk=1 "$input_file" 2>/dev/null)
+
+    if [ "$transfer" = "smpte2084" ] || [ "$transfer" = "arib-std-b67" ]; then
+        /opt/homebrew/opt/ffmpeg@7/bin/ffmpeg -i "$input_file" "${audio_input_args[@]}" \
+            -vf "zscale=t=linear:npl=100,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p" \
+            "${audio_map_args[@]}" \
+            -vcodec libx264 -crf 28 -preset slow -acodec aac -strict experimental -b:a 96k -movflags +faststart "$output_file"
+    else
+        ffmpeg -i "$input_file" "${audio_input_args[@]}" "${audio_map_args[@]}" \
+            -vcodec libx264 -crf 28 -preset slow -acodec aac -strict experimental -b:a 96k -movflags +faststart "$output_file"
+    fi
 done
