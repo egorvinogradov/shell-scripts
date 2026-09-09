@@ -5,11 +5,21 @@ hours=${1:-6}
 pid_file=/tmp/caff.pid
 
 if [ -f "$pid_file" ]; then
-    kill "$(cat "$pid_file")" 2>/dev/null
+    read -r old_pid old_until < "$pid_file"
+    if kill "$old_pid" 2>/dev/null; then
+        if [ -n "$old_until" ]; then
+            echo "caff: killed previous no-sleep (was until $(date -r "$old_until" +%H:%M))"
+        else
+            echo "caff: killed previous no-sleep"
+        fi
+    fi
 fi
 
-nohup caffeinate -diu -t $((hours * 3600)) >/dev/null 2>&1 &
-pid=$!
-echo "$pid" > "$pid_file"
+seconds=$((hours * 3600))
+until_epoch=$(($(date +%s) + seconds))
 
-echo "caff: no-sleep for ${hours}h (pid $pid)"
+nohup caffeinate -diu -t "$seconds" >/dev/null 2>&1 &
+pid=$!
+echo "$pid $until_epoch" > "$pid_file"
+
+echo "caff: no-sleep for ${hours}h, until $(date -r "$until_epoch" +%H:%M) (pid $pid)"
