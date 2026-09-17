@@ -1,13 +1,23 @@
 #!/bin/zsh
-# nnote: open today's note (YYYY-MM-DD.txt) from the Dropbox Notes-rx2go folder in Sublime Text.
+# nnote: open today's note (YYYY-MM-DD.txt) from the Dropbox notes folder in Sublime Text.
+# Notes folder is machine-dependent: Notes-rx2go on the M5 (work), Notes on the M2 (personal).
 # - If the file doesn't exist yet, creates it empty.
 # - If it's already open in Sublime Text, focuses that tab; otherwise opens a new tab.
 #   (Sublime dedupes by path: `subl` on an already-open file switches to the existing tab.)
 
 set -euo pipefail
 
-NOTES_DIR="/Users/egor/Library/CloudStorage/Dropbox/Notes-rx2go"
 SUBL="/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl"
+
+# Notes folder differs per machine. Default is the M2 (personal) folder;
+# switch to the rx2go folder only on the explicit M5 (work) signal — the CPU
+# chip name, which is stable and cannot be confused across these two Macs
+# ("Apple M5" on the M5, "Apple M2" on the M2).
+if [[ "$(sysctl -n machdep.cpu.brand_string)" == *"M5"* ]]; then
+    NOTES_DIR="/Users/egor/Library/CloudStorage/Dropbox/Notes-rx2go"
+else
+    NOTES_DIR="/Users/egor/Library/CloudStorage/Dropbox/Notes"
+fi
 
 if [[ ! -d "$NOTES_DIR" ]]; then
     echo "nnote: notes directory not found: $NOTES_DIR" >&2
