@@ -1,0 +1,28 @@
+#!/bin/zsh
+# nnote: open today's note (YYYY-MM-DD.txt) from the Dropbox Notes-rx2go folder in Sublime Text.
+# - If the file doesn't exist yet, creates it empty.
+# - If it's already open in Sublime Text, focuses that tab; otherwise opens a new tab.
+#   (Sublime dedupes by path: `subl` on an already-open file switches to the existing tab.)
+
+set -euo pipefail
+
+NOTES_DIR="/Users/egor/Library/CloudStorage/Dropbox/Notes-rx2go"
+SUBL="/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl"
+
+if [[ ! -d "$NOTES_DIR" ]]; then
+    echo "nnote: notes directory not found: $NOTES_DIR" >&2
+    exit 1
+fi
+
+note="$NOTES_DIR/$(date +%Y-%m-%d).txt"
+
+if [[ ! -f "$note" ]]; then
+    touch "$note"
+    echo "nnote: created $note"
+fi
+
+# Opens a new tab, or focuses the existing tab if the file is already open.
+"$SUBL" "$note"
+
+# Make sure the Sublime window comes to the foreground.
+open -a "Sublime Text"
