@@ -1,12 +1,170 @@
 #!/bin/bash
+# purge_disk_cache — periodic cleanup of L0 (stale leftovers) and L1 (refill-on-use caches).
+#
+# Never touches app state, logins, message DBs, user files, or pending (newer-than-installed) updates.
+# Deletes folder *contents* and keeps the folders, so running apps don't hang on missing dirs.
+#
+# Usage:
+#   purge_disk_cache            delete
+#   purge_disk_cache -n         dry run: show what would be freed
+#   purge_disk_cache -q         quit affected apps (Chrome, Firefox, Spotify, Telegram, Steam) first
+#
+# Levels:
+#   L0 = dead leftovers (finished updates, old build caches)      -> no effect
+#   L1 = regenerable cache (HTTP/media/package caches)            -> short refill on next use
+#   L2+ (state, models, backups, user data) is intentionally NOT here.
 
-rm -rf ~/Library/Caches/com.spotify.client/Data
+set -u
+shopt -s nullglob dotglob
 
-rm -rf ~/Library/Group\ Containers/*.ru.keepcoder.Telegram/stable/account-*/postbox/media
-rm -rf ~/Library/Caches/ru.keepcoder.Telegram/org.sparkle-project.Sparkle/PersistentDownloads
+DRY=0; QUIT=0
+for a in "$@"; do
+  case "$a" in
+    -n|--dry-run) DRY=1 ;;
+    -q|--quit)    QUIT=1 ;;
+    -h|--help)    sed -n '2,16p' "$0"; exit 0 ;;
+  esac
+done
 
-rm -rf ~/Library/Application\ Support/Skype/egor*/media_messaging/emo_cache_v2
+TOTAL_KB=0
+H="$HOME"
 
-rm -rf ~/java_error_in_webstorm.hprof
-rm -rf ~/.npm/_cacache
-rm -rf ~/.npm/_npx
+kb()   { du -sk "$@" 2>/dev/null | awk '{s+=$1} END {print s+0}'; }
+fmt()  { awk -v k="$1" 'BEGIN{ if(k>=1048576) printf "%.1fG", k/1048576; else if(k>=1024) printf "%.0fM", k/1024; else printf "%dK", k }'; }
+log()  { printf '  %7s  %s  %s\n' "$(fmt "$1")" "$2" "$3"; }
+
+# Delete the contents of a directory, keep the directory itself.
+purge_contents() {  # label dir
+  local label="$1" d="$2"
+  [ -d "$d" ] || return 0
+  local items=("$d"/*)
+  [ ${#items[@]} -gt 0 ] || return 0
+  local k; k=$(kb "${items[@]}")
+  [ "$k" -gt 0 ] || return 0
+  log "$k" "$label" "$d/*"
+  TOTAL_KB=$((TOTAL_KB + k))
+  [ $DRY -eq 1 ] || rm -rf -- "${items[@]}"
+}
+
+# Delete specific paths (files or whole dirs).
+purge_paths() {  # label path...
+  local label="$1"; shift
+  local existing=()
+  for p in "$@"; do [ -e "$p" ] && existing+=("$p"); done
+  [ ${#existing[@]} -gt 0 ] || return 0
+  local k; k=$(kb "${existing[@]}")
+  [ "$k" -gt 0 ] || return 0
+  log "$k" "$label" "${existing[0]}${existing[1]:+ (+$((${#existing[@]}-1)) more)}"
+  TOTAL_KB=$((TOTAL_KB + k))
+  [ $DRY -eq 1 ] || rm -rf -- "${existing[@]}"
+}
+
+app_ver()  { defaults read "$1/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null; }
+# first x.y.z(.w) in a string
+ver_in()   { grep -oE '[0-9]+(\.[0-9]+){2,3}' <<<"$1" | head -1; }
+# true if $1 <= $2 (version sort)
+ver_le()   { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]; }
+older_than_days() { [ -n "$(find "$1" -maxdepth 0 -mtime +"$2" 2>/dev/null)" ]; }
+
+# electron-updater cache: delete everything if pending version <= installed; else keep pending, drop the duplicate top-level zip.
+purge_electron_updater() {  # label cachedir app
+  local label="$1" c="$2" app="$3"
+  [ -d "$c" ] || return 0
+  local inst pend
+  inst=$(app_ver "$app")
+  pend=$(ver_in "$(ls "$c"/pending 2>/dev/null)")
+  if [ -z "$pend" ] || [ -z "$inst" ] || ver_le "$pend" "$inst"; then
+    purge_contents "$label (stale)" "$c"
+  else
+    purge_paths "$label (keep pending $pend > $inst; drop dup)" "$c"/update.zip
+  fi
+}
+
+if [ $QUIT -eq 1 ] && [ $DRY -eq 0 ]; then
+  for app in "Google Chrome" Firefox Spotify Telegram Steam; do
+    pgrep -xq "$app" 2>/dev/null && osascript -e "quit app \"$app\"" >/dev/null 2>&1
+  done
+  sleep 3
+fi
+
+echo "== L0: stale leftovers =="
+# Sparkle downloads (already-installed updates)
+for d in "$H"/Library/Caches/*/org.sparkle-project.Sparkle/PersistentDownloads; do
+  purge_contents "Sparkle downloads" "$d"
+done
+# Squirrel.Mac leftover update dirs
+purge_paths "Squirrel ShipIt leftovers" "$H"/Library/Caches/*.ShipIt/update.*
+# electron-updater caches (version-checked)
+purge_electron_updater "AutoClaw updater" "$H/Library/Caches/autoclaw-updater"           "/Applications/AutoClaw.app"
+purge_electron_updater "Aircall updater"  "$H/Library/Caches/@aircallaw-desktop-updater" "/Applications/Aircall Workspace.app"
+# Firefox staged update: only when applied and not newer than installed
+FFU="$H/Library/Caches/Mozilla/updates/Applications/Firefox/updates/0"
+if [ -d "$FFU" ]; then
+  staged=$(app_ver "$FFU/Updated.app"); inst=$(app_ver /Applications/Firefox.app)
+  if [ -z "$staged" ] || { [ -n "$inst" ] && ver_le "$staged" "$inst"; }; then
+    purge_contents "Firefox applied update" "$FFU"
+  fi
+fi
+# Spotify downloaded update: only when not newer than installed
+SPU="$H/Library/Application Support/Spotify/PersistentCache/Update"
+if [ -d "$SPU" ]; then
+  pend=$(ver_in "$(ls "$SPU" 2>/dev/null)"); inst=$(app_ver /Applications/Spotify.app)
+  if [ -z "$pend" ] || { [ -n "$inst" ] && ver_le "$pend" "$inst"; }; then
+    purge_contents "Spotify installed update" "$SPU"
+  fi
+fi
+# WhatsApp Sparkle Installation dir: Sparkle removes it after install; if still here after 14 days it is abandoned
+for d in "$H"/Library/Caches/net.whatsapp.WhatsApp/org.sparkle-project.Sparkle/Installation/*; do
+  older_than_days "$d" 14 && purge_paths "WhatsApp abandoned update" "$d"
+done
+# Cursor V8 code cache for old builds (keep current commit)
+CUR_COMMIT=$(python3 -c 'import json;print(json.load(open("/Applications/Cursor.app/Contents/Resources/app/product.json"))["commit"])' 2>/dev/null)
+old=()
+for d in "$H"/Library/Application\ Support/Cursor/CachedData/*; do
+  [ "$(basename "$d")" = "$CUR_COMMIT" ] || old+=("$d")
+done
+purge_paths "Cursor CachedData (old builds)" "${old[@]}"
+# Crash dumps
+purge_paths "JVM heap dumps" "$H"/*.hprof
+
+echo "== L1: regenerable caches =="
+for d in "$H"/Library/Caches/Google/Chrome/*/Cache "$H"/Library/Caches/Google/Chrome/*/Code\ Cache; do
+  purge_contents "Chrome HTTP/code cache" "$d"
+done
+purge_contents "Google updater CRX cache" "$H/Library/Application Support/Google/GoogleUpdater/crx_cache"
+for d in "$H"/Library/Application\ Support/Cursor/Partitions/*/Cache "$H"/Library/Application\ Support/Cursor/Partitions/*/Code\ Cache; do
+  purge_contents "Cursor browser cache" "$d"
+done
+purge_contents "Cursor HTTP cache" "$H/Library/Application Support/Cursor/Cache"
+purge_paths    "Cursor logs (>1 day)" $(find "$H/Library/Application Support/Cursor/logs" -mindepth 1 -maxdepth 1 -mtime +1 2>/dev/null)
+purge_contents "Spotify HTTP cache" "$H/Library/Caches/com.spotify.client/Browser/Cache"
+purge_contents "Spotify code cache" "$H/Library/Caches/com.spotify.client/Browser/Code Cache"
+for p in "$H"/Library/Caches/Firefox/Profiles/*; do
+  for s in cache2 startupCache safebrowsing remote-settings thumbnails; do
+    purge_contents "Firefox $s" "$p/$s"
+  done
+done
+for d in "$H"/Library/Group\ Containers/*.ru.keepcoder.Telegram/stable/account-*/postbox/media; do
+  purge_contents "Telegram media cache" "$d"
+done
+purge_contents "Steam web cache" "$H/Library/Caches/Steam"
+
+echo "== L1: package-manager caches =="
+purge_contents "pip"        "$H/Library/Caches/pip"
+purge_contents "pnpm"       "$H/Library/Caches/pnpm"
+purge_contents "poetry"     "$H/Library/Caches/pypoetry"
+purge_contents "node-gyp"   "$H/Library/Caches/node-gyp"
+purge_contents "electron"   "$H/Library/Caches/electron"
+purge_contents "typescript" "$H/Library/Caches/typescript"
+purge_contents "npm cache"  "$H/.npm/_cacache"
+purge_contents "npx cache"  "$H/.npm/_npx"
+if command -v brew >/dev/null 2>&1; then
+  if [ $DRY -eq 1 ]; then brew cleanup -n -s 2>/dev/null | tail -1 | sed 's/^/  /'; else brew cleanup -s >/dev/null 2>&1; fi
+fi
+
+echo
+[ $DRY -eq 1 ] && echo "DRY RUN — would free ~$(fmt "$TOTAL_KB") (plus brew above)" || echo "Freed ~$(fmt "$TOTAL_KB") (plus brew). Space held by running apps is released when they restart."
+running=()
+for app in "Google Chrome" Firefox Spotify Telegram Steam Cursor; do pgrep -xq "$app" 2>/dev/null && running+=("$app"); done
+[ ${#running[@]} -gt 0 ] && echo "Restart to finish: ${running[*]}"
+exit 0
