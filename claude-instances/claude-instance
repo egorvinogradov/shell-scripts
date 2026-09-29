@@ -1,0 +1,38 @@
+#!/bin/zsh
+# claude-instance <main|blake>
+# Brings the named Claude desktop instance to the front if it is running,
+# otherwise starts it. Never starts a second copy of the same instance.
+
+APP_BIN="/Applications/Claude.app/Contents/MacOS/Claude"
+BLAKE_DATA="$HOME/Library/Application Support/claude-blake"
+BLAKE_CONFIG="$HOME/.claude-blake"
+
+instance="$1"
+case "$instance" in
+  main|blake) ;;
+  *) echo "usage: claude-instance <main|blake>" >&2; exit 2 ;;
+esac
+
+# PID of the running main process of that instance (helpers have other paths).
+find_pid() {
+  ps -axo pid=,command= | while read -r pid cmd; do
+    [[ "$cmd" == "$APP_BIN"* ]] || continue
+    if [[ "$cmd" == *"--user-data-dir=$BLAKE_DATA"* ]]; then
+      [[ "$instance" == blake ]] && { echo "$pid"; return; }
+    elif [[ "$cmd" != *"--user-data-dir="* ]]; then
+      [[ "$instance" == main ]] && { echo "$pid"; return; }
+    fi
+  done
+}
+
+pid="$(find_pid)"
+if [[ -n "$pid" ]]; then
+  osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $pid) to true" >/dev/null
+  exit $?
+fi
+
+if [[ "$instance" == blake ]]; then
+  open -n -a Claude --env CLAUDE_CONFIG_DIR="$BLAKE_CONFIG" --args --user-data-dir="$BLAKE_DATA"
+else
+  open -n -a Claude
+fi
