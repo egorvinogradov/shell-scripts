@@ -53,12 +53,14 @@ EOF
 }
 
 if [ "$(state)" != "call" ]; then
+    echo "zoom_invite: opening Zoom (a cold start can take 45+ s)..." >&2
     open -a zoom.us
     last_start=0
     for _ in $(seq 300); do
         case "$(state)" in
             call) break ;;
             preview)
+                echo "zoom_invite: clicking Start in the preview dialog..." >&2
                 # Start button of the "Always show this preview" dialog: bottom right.
                 # The dialog is 640x511 pt; its window is found by name, not size.
                 osascript <<'EOF' >/dev/null 2>&1
@@ -77,6 +79,7 @@ EOF
             ready)
                 # The menu exists before the app is ready: retry every 8 s until it takes.
                 if [ $(( $(date +%s) - last_start )) -ge 8 ]; then
+                    echo "zoom_invite: asking Zoom to start a meeting..." >&2
                     zoom_ui 'click menu item "Start meeting" of menu 1 of menu bar item "Zoom Workplace" of menu bar 1' >/dev/null
                     last_start=$(date +%s)
                 fi
@@ -85,6 +88,7 @@ EOF
         sleep 0.4
     done
     [ "$(state)" = "call" ] || { echo "zoom_invite: meeting did not start" >&2; exit 1; }
+    echo "zoom_invite: call is up, closing popups, copying link..." >&2
     sleep 1.5
 
     # "Start Zoom AI" popup: Close is 159 pt from the right edge, 132 pt from the top.
