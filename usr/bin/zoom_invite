@@ -1,0 +1,55 @@
+#!/bin/bash
+# zoom_invite: start an instant Zoom meeting and copy its invite link to the clipboard.
+# If a meeting is already running, just copies that meeting's link.
+# Needs Accessibility permission for the app running it (Terminal, Claude, ...).
+
+set -u
+
+in_meeting() {
+    osascript -e 'tell application "System Events" to tell process "zoom.us" to get exists menu bar item "Meeting" of menu bar 1' 2>/dev/null | grep -q true
+}
+
+wait_for_meeting() {
+    local tries=${1:-30}
+    for _ in $(seq "$tries"); do
+        in_meeting && return 0
+        sleep 0.5
+    done
+    return 1
+}
+
+if ! in_meeting; then
+    open -a zoom.us
+    for _ in $(seq 40); do
+        osascript -e 'tell application "System Events" to tell process "zoom.us" to get name of menu item "Start meeting" of menu 1 of menu bar item "Zoom Workplace" of menu bar 1' >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+    osascript -e 'tell application "System Events" to tell process "zoom.us" to click menu item "Start meeting" of menu 1 of menu bar item "Zoom Workplace" of menu bar 1' >/dev/null 2>&1 \
+        || { echo "zoom_invite: could not click Start meeting (Accessibility permission?)" >&2; exit 1; }
+
+    # The video preview dialog (when "Always show this preview" is on) has a Start button
+    # that scripting cannot see. Click it by its place inside the dialog window.
+    sleep 2
+    if ! in_meeting; then
+        osascript <<'EOF' >/dev/null 2>&1
+tell application "System Events" to tell process "zoom.us"
+    repeat with w in windows
+        set {wx, wy} to position of w
+        set {ww, wh} to size of w
+        if ww > 500 and ww < 800 and wh > 400 and wh < 650 and (name of w) contains "Zoom Meeting" then
+            click at {wx + ww * 0.873, wy + wh * 0.930}
+            exit repeat
+        end if
+    end repeat
+end tell
+EOF
+    fi
+    wait_for_meeting 40 || { echo "zoom_invite: meeting did not start" >&2; exit 1; }
+    sleep 1
+fi
+
+osascript -e 'tell application "System Events" to tell process "zoom.us" to click menu item "Copy invite link" of menu 1 of menu bar item "Meeting" of menu bar 1' >/dev/null 2>&1 \
+    || { echo "zoom_invite: could not click Copy invite link" >&2; exit 1; }
+sleep 0.5
+link=$(pbpaste)
+echo "$link"
