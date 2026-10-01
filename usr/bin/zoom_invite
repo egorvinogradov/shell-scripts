@@ -1,55 +1,112 @@
 #!/bin/bash
 # zoom_invite: start an instant Zoom meeting and copy its invite link to the clipboard.
 # If a meeting is already running, just copies that meeting's link.
+# Closes Zoom's "Start Zoom AI" and "Not hearing anything?" popups.
 # Needs Accessibility permission for the app running it (Terminal, Claude, ...).
 
 set -u
 
-in_meeting() {
-    osascript -e 'tell application "System Events" to tell process "zoom.us" to get exists menu bar item "Meeting" of menu bar 1' 2>/dev/null | grep -q true
+zoom_ui() { osascript -e "tell application \"System Events\" to tell process \"zoom.us\" to $1" 2>/dev/null; }
+
+# One scripting call that says where Zoom is: call | preview | ready | none
+state() {
+    osascript <<'EOF' 2>/dev/null
+tell application "System Events"
+    if not (exists process "zoom.us") then return "none"
+    tell process "zoom.us"
+        if exists menu bar item "Meeting" of menu bar 1 then return "call"
+        set names to name of every window
+        repeat with n in names
+            if (n as text) contains "Zoom Meeting" then return "preview"
+        end repeat
+        if names contains "Zoom Workplace" then return "ready"
+    end tell
+end tell
+return "none"
+EOF
 }
 
-wait_for_meeting() {
-    local tries=${1:-30}
-    for _ in $(seq "$tries"); do
-        in_meeting && return 0
-        sleep 0.5
-    done
-    return 1
+# Click in the "Zoom Meeting" window. Offsets in points: x from the left (or from the
+# right edge if negative), y from the top. The preview dialog and the popups are
+# invisible to scripting, so they are clicked by position.
+click_zoom_window() {
+    osascript - "$1" "$2" <<'EOF' >/dev/null 2>&1
+on run argv
+    set dx to (item 1 of argv) as real
+    set dy to (item 2 of argv) as real
+    tell application "System Events" to tell process "zoom.us"
+        repeat with w in windows
+            if (name of w) is "Zoom Meeting" then
+                set {wx, wy} to position of w
+                set {ww, wh} to size of w
+                if dx < 0 then
+                    click at {wx + ww + dx, wy + dy}
+                else
+                    click at {wx + dx, wy + dy}
+                end if
+                exit repeat
+            end if
+        end repeat
+    end tell
+end run
+EOF
 }
 
-if ! in_meeting; then
+if [ "$(state)" != "call" ]; then
     open -a zoom.us
-    for _ in $(seq 40); do
-        osascript -e 'tell application "System Events" to tell process "zoom.us" to get name of menu item "Start meeting" of menu 1 of menu bar item "Zoom Workplace" of menu bar 1' >/dev/null 2>&1 && break
-        sleep 0.5
-    done
-    osascript -e 'tell application "System Events" to tell process "zoom.us" to click menu item "Start meeting" of menu 1 of menu bar item "Zoom Workplace" of menu bar 1' >/dev/null 2>&1 \
-        || { echo "zoom_invite: could not click Start meeting (Accessibility permission?)" >&2; exit 1; }
-
-    # The video preview dialog (when "Always show this preview" is on) has a Start button
-    # that scripting cannot see. Click it by its place inside the dialog window.
-    sleep 2
-    if ! in_meeting; then
-        osascript <<'EOF' >/dev/null 2>&1
+    last_start=0
+    for _ in $(seq 300); do
+        case "$(state)" in
+            call) break ;;
+            preview)
+                # Start button of the "Always show this preview" dialog: bottom right.
+                # The dialog is 640x511 pt; its window is found by name, not size.
+                osascript <<'EOF' >/dev/null 2>&1
 tell application "System Events" to tell process "zoom.us"
     repeat with w in windows
-        set {wx, wy} to position of w
-        set {ww, wh} to size of w
-        if ww > 500 and ww < 800 and wh > 400 and wh < 650 and (name of w) contains "Zoom Meeting" then
+        if (name of w) contains "Zoom Meeting" then
+            set {wx, wy} to position of w
+            set {ww, wh} to size of w
             click at {wx + ww * 0.873, wy + wh * 0.930}
             exit repeat
         end if
     end repeat
 end tell
 EOF
-    fi
-    wait_for_meeting 40 || { echo "zoom_invite: meeting did not start" >&2; exit 1; }
-    sleep 1
+                ;;
+            ready)
+                # The menu exists before the app is ready: retry every 8 s until it takes.
+                if [ $(( $(date +%s) - last_start )) -ge 8 ]; then
+                    zoom_ui 'click menu item "Start meeting" of menu 1 of menu bar item "Zoom Workplace" of menu bar 1' >/dev/null
+                    last_start=$(date +%s)
+                fi
+                ;;
+        esac
+        sleep 0.4
+    done
+    [ "$(state)" = "call" ] || { echo "zoom_invite: meeting did not start" >&2; exit 1; }
+    sleep 1.5
+
+    # "Start Zoom AI" popup: Close is 159 pt from the right edge, 132 pt from the top.
+    click_zoom_window -159 132
+    # "Not hearing anything?" popup: its x is 128 pt right of the window's middle.
+    osascript <<'EOF' >/dev/null 2>&1
+tell application "System Events" to tell process "zoom.us"
+    repeat with w in windows
+        if (name of w) is "Zoom Meeting" then
+            set {wx, wy} to position of w
+            set {ww, wh} to size of w
+            click at {wx + ww / 2 + 128, wy + 84}
+            exit repeat
+        end if
+    end repeat
+end tell
+EOF
+    # Zoom also pops up a "Meeting info" card on start; it hides itself, but close it now.
+    zoom_ui 'if exists window "Meeting info" then click (first button of window "Meeting info")' >/dev/null
 fi
 
-osascript -e 'tell application "System Events" to tell process "zoom.us" to click menu item "Copy invite link" of menu 1 of menu bar item "Meeting" of menu bar 1' >/dev/null 2>&1 \
+zoom_ui 'click menu item "Copy invite link" of menu 1 of menu bar item "Meeting" of menu bar 1' >/dev/null \
     || { echo "zoom_invite: could not click Copy invite link" >&2; exit 1; }
-sleep 0.5
-link=$(pbpaste)
-echo "$link"
+sleep 0.4
+pbpaste
