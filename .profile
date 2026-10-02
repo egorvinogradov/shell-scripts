@@ -50,10 +50,6 @@ cheat () {
   curl "cheat.sh/$1"
 }
 
-zoom_join () {
-  open "zoommtg://zoom.us/join?confno=$1"
-}
-
 unlock_hosts() {
   echo "Unlocking hosts file..."
   sudo chflags nouchg /etc/hosts
