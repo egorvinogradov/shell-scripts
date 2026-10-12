@@ -5,7 +5,7 @@
   sublime_log y                  yesterday
   sublime_log 2026-10-05         that day
   sublime_log 2026-10-01 2026-10-05   every day from..to (any order)
-  sublime_log 2h | 3d | week | month | all
+  sublime_log 10m | 2h | 3d | week | month | all
   sublime_log status             is the background watcher alive, when did it last log
 
 Flags: --no-open  print the viewer path, do not open a browser (use from scripts / AI)
@@ -50,11 +50,11 @@ def parse_range(tokens):
     dates = []
     for tok in tokens:
         t = tok.lower()
-        m = re.fullmatch(r"(\d+)([hd])", t)
+        m = re.fullmatch(r"(\d+)([mhd])", t)
         if len(tokens) == 1 and m:
             n, unit = int(m.group(1)), m.group(2)
-            delta = timedelta(hours=n) if unit == "h" else timedelta(days=n)
-            return ms(now - delta), ms(now) + 60000, f"Last {n} {'hours' if unit == 'h' else 'days'}"
+            delta = {"m": timedelta(minutes=n), "h": timedelta(hours=n), "d": timedelta(days=n)}[unit]
+            return ms(now - delta), ms(now) + 60000, f"Last {n} {({'m': 'minutes', 'h': 'hours', 'd': 'days'})[unit]}"
         if len(tokens) == 1 and t in ("week", "7"):
             return ms(today - 6 * one_day), ms(today + one_day), "Last 7 days"
         if len(tokens) == 1 and t == "month":
@@ -145,7 +145,7 @@ def status(root):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("range", nargs="*", help="y | YYYY-MM-DD [YYYY-MM-DD] | 2h | 3d | week | month | all | status")
+    ap.add_argument("range", nargs="*", help="y | YYYY-MM-DD [YYYY-MM-DD] | 10m | 2h | 3d | week | month | all | status")
     ap.add_argument("--no-open", action="store_true")
     ap.add_argument("--text", action="store_true")
     ap.add_argument("--log-dir")

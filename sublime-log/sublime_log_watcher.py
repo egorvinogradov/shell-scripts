@@ -221,7 +221,8 @@ class Log:
 
 class Watcher:
     def __init__(self, session, log_root):
-        self.session = session
+        self.session_file = session
+        self.live_file = os.path.join(log_root, "live-session.json")     # written by the Sublime plugin on every edit
         self.log = Log(log_root)
         self.state_path = os.path.join(log_root, "state.json")
         self.status_path = os.path.join(log_root, "watcher-status.json")
@@ -235,6 +236,16 @@ class Watcher:
                 self.last_event = json.load(f).get("last_event")
         except Exception:
             pass
+
+    @property
+    def session(self):
+        """Whichever of Sublime's own session file / the plugin's live snapshot was written last."""
+        def mt(p):
+            try:
+                return os.path.getmtime(p)
+            except OSError:
+                return -1
+        return self.live_file if mt(self.live_file) > mt(self.session_file) else self.session_file
 
     def _load_state(self):
         try:
@@ -350,14 +361,16 @@ class Watcher:
         self._save_state()
 
     def run(self):
-        directory = os.path.dirname(self.session)
-        log(f"watching {self.session} -> {self.log.root}")
+        directory = os.path.dirname(self.session_file)
+        log(f"watching {self.session_file} (+ live snapshot in {self.log.root})")
         kq = select.kqueue()
         fd_dir = os.open(directory, os.O_RDONLY)
         fflags = select.KQ_NOTE_WRITE | select.KQ_NOTE_EXTEND | select.KQ_NOTE_ATTRIB | select.KQ_NOTE_DELETE | \
             select.KQ_NOTE_RENAME | select.KQ_NOTE_REVOKE
         flags = select.KQ_EV_ADD | select.KQ_EV_CLEAR
         kq.control([select.kevent(fd_dir, select.KQ_FILTER_VNODE, flags, fflags)], 0)
+        fd_live = os.open(self.log.root, os.O_RDONLY)                    # the plugin replaces live-session.json atomically
+        kq.control([select.kevent(fd_live, select.KQ_FILTER_VNODE, flags, select.KQ_NOTE_WRITE)], 0)
         fd_file, sig = None, (None, None, None)
 
         def attach_file():
@@ -366,14 +379,14 @@ class Watcher:
                 os.close(fd_file)
                 fd_file = None
             try:
-                fd_file = os.open(self.session, os.O_RDONLY)
+                fd_file = os.open(self.session_file, os.O_RDONLY)
                 kq.control([select.kevent(fd_file, select.KQ_FILTER_VNODE, flags, fflags)], 0)
             except OSError:
                 fd_file = None
 
         def signature():
             try:
-                s = os.stat(self.session)
+                s = os.stat(self.session_file)
                 return (s.st_ino, s.st_mtime_ns, s.st_size)
             except OSError:
                 return (None, None, None)

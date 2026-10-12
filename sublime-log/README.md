@@ -10,7 +10,7 @@ Background change log for every Sublime Text tab: what was added / removed, and 
     sublime_log 2026-10-05          a day          sublime_log --text y   (print in terminal, no browser)
     sublime_log 2026-10-01 2026-10-05   a range    sublime_log --no-open  (just write the range, print viewer path)
 
-Files here: `sublime_log_watcher.py` (the daemon, kqueue + debounce), `sublime_log` (CLI), `viewer.html` (static page, works from file://),
+Files here: `sublime_log_live.py` (Sublime plugin: writes live-session.json 0.3 s after every edit, copied into Packages/User by install.sh), `sublime_log_watcher.py` (the daemon, kqueue + debounce), `sublime_log` (CLI), `viewer.html` (static page, works from file://),
 `install.sh`, `uninstall.sh`.
 
 Log dir (default `~/.local/share/sublime-log`, remembered in `~/.config/sublime-log/config.json`):

@@ -49,9 +49,15 @@ cat > "$PLIST" <<PLIST
 </dict></plist>
 PLIST
 
+# Sublime plugin: writes the live snapshot the watcher reads (Sublime's own session file lags behind typing)
+for d in "$HOME/Library/Application Support"/Sublime\ Text*/Packages/User(N); do
+  cp "$HERE/sublime_log_live.py" "$d/sublime_log_live.py"
+done
+
 UIDN="$(id -u)"
 launchctl bootout "gui/$UIDN/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$UIDN" "$PLIST"
+sleep 1
+launchctl bootstrap "gui/$UIDN" "$PLIST" || { sleep 3; launchctl bootstrap "gui/$UIDN" "$PLIST"; }
 launchctl kickstart -k "gui/$UIDN/$LABEL" 2>/dev/null || true
 
 echo "installed."
