@@ -21,8 +21,8 @@ SESSION_NAME = "Auto Save Session.sublime_session"
 CONFIG = os.path.expanduser("~/.config/sublime-log/config.json")
 DEFAULT_LOG_DIR = os.path.expanduser("~/.local/share/sublime-log")
 
-QUIET_SECONDS = float(os.environ.get("SUBLOG_QUIET", 15))   # typing pause that closes a burst
-MAX_WAIT_SECONDS = float(os.environ.get("SUBLOG_MAX_WAIT", 90))      # never sit on an unlogged change longer than this, even if typing never stops
+QUIET_SECONDS = float(os.environ.get("SUBLOG_QUIET", 5))   # typing pause that closes a burst
+MAX_WAIT_SECONDS = float(os.environ.get("SUBLOG_MAX_WAIT", 30))      # never sit on an unlogged change longer than this, even if typing never stops
 SAFETY_CHECK_SECONDS = 60   # stat-only fallback in case a kernel event is ever missed
 MAX_TEXT = 2_000_000        # larger tabs are tracked by hash only
 MAX_HUNK_CHARS = 20_000     # per side of a hunk; longer text is cut and flagged
@@ -213,6 +213,11 @@ class Watcher:
         self.next_untitled = 1
         self.last_event = None
         self._load_state()
+        try:
+            with open(self.status_path, encoding="utf-8") as f:
+                self.last_event = json.load(f).get("last_event")
+        except Exception:
+            pass
 
     def _load_state(self):
         try:
