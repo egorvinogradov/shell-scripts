@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sublime change log</title>
+<style>
+:root{--bg:#1e1f1c;--panel:#272822;--tabbar:#161614;--tab:#1f201c;--fg:#e6e6dc;--mut:#8f908a;--line:#3a3b35;--acc:#66d9ef;
+--add-bg:rgba(166,226,46,.14);--add-fg:#b6e354;--add-mark:rgba(166,226,46,.38);
+--del-bg:rgba(249,38,114,.15);--del-fg:#ff7aa6;--del-mark:rgba(249,38,114,.40)}
+@media(prefers-color-scheme:light){:root{--bg:#fafaf8;--panel:#fff;--tabbar:#e9e9e4;--tab:#dededa;--fg:#222;--mut:#6c6c66;--line:#d8d8d2;--acc:#0b6fa4;
+--add-bg:rgba(46,160,67,.13);--add-fg:#1a7f37;--add-mark:rgba(46,160,67,.32);
+--del-bg:rgba(215,58,73,.12);--del-fg:#b4232f;--del-mark:rgba(215,58,73,.30)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 -apple-system,system-ui,sans-serif;min-height:100vh}
+.mono{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-size:14px;margin:0;font-weight:600}
+.range{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+button,input{font:inherit;font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+button{cursor:pointer}button:hover{border-color:var(--mut)}
+button.on{background:var(--acc);border-color:var(--acc);color:#111;font-weight:600}
+input[type=date]{padding:2px 6px;color-scheme:light dark}
+.sp{flex:1}
+.lbl{color:var(--mut);font-size:12px}
+.tabs{display:flex;overflow-x:auto;background:var(--tabbar);border-bottom:1px solid var(--line);scrollbar-width:thin}
+.tab{flex:none;max-width:260px;padding:7px 14px 7px 12px;background:var(--tab);color:var(--mut);border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:7px;align-items:center;border-top:2px solid transparent}
+.tab:hover{color:var(--fg)}
+.tab.sel{background:var(--panel);color:var(--fg);border-top-color:var(--acc)}
+.tab .t{overflow:hidden;text-overflow:ellipsis}
+.tab.untitled .t{font-style:italic}
+.tab .n{flex:none;font-size:11px;color:var(--mut)}
+.tab .n b{font-weight:600}.n .a{color:var(--add-fg)}.n .d{color:var(--del-fg)}
+.tab.closed .t{text-decoration:line-through;text-decoration-color:var(--mut)}
+main{padding:14px;max-width:1100px;margin:0 auto}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;margin-bottom:12px}
+.meta h2{margin:0;font-size:15px}
+.meta .path{color:var(--mut);font-size:12px;word-break:break-all}
+.day{margin:18px 0 6px;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.ev{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:var(--panel);overflow:hidden}
+.evh{display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px}
+.evh .time{font-variant-numeric:tabular-nums;font-weight:600}
+.chip{padding:0 7px;border-radius:9px;background:var(--tab);color:var(--mut);font-size:11px}
+.chip.new,.chip.open{color:var(--add-fg)}.chip.close{color:var(--del-fg)}.chip.save{color:var(--acc)}
+.cnt .a{color:var(--add-fg)}.cnt .d{color:var(--del-fg)}.cnt{font-variant-numeric:tabular-nums}
+.hunk{border-top:1px solid var(--line)}.hunk:first-of-type{border-top:0}
+.at{padding:2px 10px;color:var(--mut);background:var(--tabbar);font-size:11px}
+.row{display:grid;grid-template-columns:44px 20px minmax(0,1fr);white-space:pre-wrap;word-break:break-word}
+.row .ln{color:var(--mut);text-align:right;padding-right:8px;user-select:none;opacity:.8}
+.row .sg{text-align:center;user-select:none}
+.row.add{background:var(--add-bg);color:var(--add-fg)}.row.del{background:var(--del-bg);color:var(--del-fg)}
+.row.add mark{background:var(--add-mark);color:inherit;border-radius:2px}.row.del mark{background:var(--del-mark);color:inherit;border-radius:2px}
+.row .tx{padding-right:10px}
+.note{padding:6px 10px;color:var(--mut);font-size:12px}
+.empty{padding:48px 14px;text-align:center;color:var(--mut)}
+.empty code{background:var(--tab);padding:1px 6px;border-radius:4px}
+.sw{display:flex;gap:6px;align-items:center}
+@media(max-width:640px){.row{grid-template-columns:34px 16px minmax(0,1fr)}}
+</style></head><body>
+<header>
+  <h1>Sublime change log</h1>
+  <div class="range" id="presets"></div>
+  <div class="range"><input type="date" id="d0"><span class="lbl">→</span><input type="date" id="d1"><button id="go">Show</button></div>
+  <span class="sp"></span>
+  <label class="sw lbl"><input type="checkbox" id="rev"> newest first</label>
+  <button id="refresh" title="Reload the log files">↻</button>
+  <span class="lbl" id="range-lbl"></span>
+</header>
+<div class="tabs" id="tabs"></div>
+<main id="main"></main>
+<script src="index.js"></script>
+<script src="open.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const DAY = 86400000;
+let range = {from: 0, to: 0, label: ""}, preset = null, events = [], selected = null, lastOpenTs = 0;
+const cache = {};                                    // part file name -> events (file:// has no fetch, so day files are loaded as <script>)
+let cur = null;
+window.SUBLOG_EVENT = ev => { if (cur) cur.push(ev); };
+
+const localMidnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const PRESETS = [
+  ["Today", () => [localMidnight(), localMidnight() + DAY]],
+  ["Yesterday", () => [localMidnight() - DAY, localMidnight()]],
+  ["Last 7 days", () => [localMidnight() - 6 * DAY, localMidnight() + DAY]],
+  ["Last 30 days", () => [localMidnight() - 29 * DAY, localMidnight() + DAY]],
+  ["All", () => [0, localMidnight() + DAY]],
+];
+const dayStr = ms => { const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const utcDay = ms => new Date(ms).toISOString().slice(0, 10);
+const timeStr = ms => new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+const dateLong = ms => new Date(ms).toLocaleDateString([], {weekday: "long", year: "numeric", month: "long", day: "numeric"});
+
+function loadScript(src) {
+  return new Promise(res => { const s = document.createElement("script"); s.src = src; s.onload = s.onerror = () => { s.remove(); res(); }; document.head.appendChild(s); });
+}
+
+async function loadRange(force) {
+  const idx = (window.SUBLOG_INDEX || {}).days || {};
+  const lo = utcDay(Math.max(range.from, 0) - DAY), hi = utcDay(range.to + DAY);
+  const parts = [];
+  for (const day of Object.keys(idx).sort()) if (day >= lo && day <= hi) parts.push(...idx[day]);
+  for (const p of parts) {
+    if (cache[p] && !force) continue;
+    cur = []; await loadScript("days/" + p + "?_=" + Date.now()); cache[p] = cur; cur = null;
+  }
+  events = parts.flatMap(p => cache[p] || []).filter(e => e.t >= range.from && e.t < range.to).sort((a, b) => a.t - b.t);
+  render();
+}
+
+function groupTabs() {
+  const m = new Map();
+  for (const e of events) {
+    if (!m.has(e.id)) m.set(e.id, {id: e.id, first: e.t, evs: [], ins: 0, del: 0});
+    const g = m.get(e.id); g.evs.push(e); g.ins += e.ins || 0; g.del += e.del || 0;
+    g.title = e.title; g.file = e.file; g.closed = e.k === "close";
+  }
+  return [...m.values()].sort((a, b) => a.first - b.first);   // same order as the tabs were created
+}
+
+function render() {
+  $("range-lbl").textContent = range.label + " · " + (range.from ? dayStr(range.from) : "start") + " → " + dayStr(range.to - 1) + " · local time";
+  document.querySelectorAll("#presets button").forEach(b => b.classList.toggle("on", b.dataset.p === preset));
+  $("d0").value = range.from ? dayStr(range.from) : ""; $("d1").value = dayStr(range.to - 1);
+  const tabs = groupTabs();
+  if (!tabs.find(t => t.id === selected)) selected = tabs.length ? tabs[tabs.length - 1].id : null;   // newest tab first view
+  $("tabs").innerHTML = tabs.map(t => `<div class="tab ${t.file ? "" : "untitled"} ${t.id === selected ? "sel" : ""} ${t.closed ? "closed" : ""}" data-id="${esc(t.id)}" title="${esc(t.file || "untitled tab")}">
+    <span class="t">${esc(t.title)}</span><span class="n"><b class="a">+${t.ins}</b> <b class="d">−${t.del}</b></span></div>`).join("");
+  document.querySelectorAll(".tab").forEach(el => el.onclick = () => { selected = el.dataset.id; render(); });
+  const main = $("main");
+  const t = tabs.find(x => x.id === selected);
+  if (!t) {
+    main.innerHTML = `<div class="empty">No changes logged in this range.<br><br>Is the watcher running? <code>sublime_log status</code></div>`;
+    return;
+  }
+  const evs = $("rev").checked ? [...t.evs].reverse() : t.evs;
+  let html = `<div class="meta"><h2>${esc(t.title)}</h2><span class="cnt"><span class="a">+${t.ins}</span> <span class="d">−${t.del}</span> lines</span><span class="path">${esc(t.file || "untitled tab — never saved")}</span></div>`;
+  let lastDay = "";
+  for (const e of evs) {
+    const d = dayStr(e.t);
+    if (d !== lastDay) { html += `<div class="day">${esc(dateLong(e.t))}</div>`; lastDay = d; }
+    html += eventHtml(e);
+  }
+  main.innerHTML = html;
+}
+
+const KIND = {new: "new tab", open: "opened", edit: "edited", save: "saved", close: "closed"};
+function eventHtml(e) {
+  const cnt = e.h ? `<span class="cnt"><span class="a">+${e.ins}</span> <span class="d">−${e.del}</span></span>` : "";
+  let body = "";
+  for (const h of e.h || []) body += hunkHtml(h);
+  if (e.note) body += `<div class="note">${esc(e.note)}</div>`;
+  return `<div class="ev"><div class="evh"><span class="time">${timeStr(e.t)}</span><span class="chip ${e.k}">${KIND[e.k] || e.k}</span>${e.src === "disk" ? '<span class="chip">changed on disk</span>' : ""}${e.saved === false ? '<span class="chip">unsaved</span>' : ""}${cnt}</div>${body}</div>`;
+}
+
+function hunkHtml(h) {
+  const del = h["-"], add = h["+"];
+  const pair = del.length && del.length === add.length && del.length <= 60;      // line i replaced by line i -> show which characters changed
+  let out = `<div class="hunk mono"><div class="at">line ${h.n}${h.cut ? " · long block, cut" : ""}</div>`;
+  del.forEach((l, i) => out += row("del", h.o + i, "−", pair ? mark(l, add[i], 0) : esc(l)));
+  add.forEach((l, i) => out += row("add", h.n + i, "+", pair ? mark(l, del[i], 1) : esc(l)));
+  return out + "</div>";
+}
+const row = (cls, n, sg, tx) => `<div class="row ${cls}"><span class="ln">${n}</span><span class="sg">${sg}</span><span class="tx">${tx || " "}</span></div>`;
+
+function mark(a, b, which) {           // highlight the middle of `a` that differs from `b`
+  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let s = 0; while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
+  const mid = a.slice(p, a.length - s);
+  if (!mid || (p === 0 && s === 0)) return esc(a);
+  return esc(a.slice(0, p)) + "<mark>" + esc(mid) + "</mark>" + esc(a.slice(a.length - s));
+}
+
+function setRange(from, to, label, p) { range = {from, to, label}; preset = p || (PRESETS.some(x => x[0] === label) ? label : null); loadRange(false); }
+
+$("presets").innerHTML = PRESETS.map(([n]) => `<button data-p="${n}">${n}</button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => b.onclick = () => { const [f, t] = PRESETS.find(p => p[0] === b.dataset.p)[1](); setRange(f, t, b.dataset.p, b.dataset.p); });
+$("go").onclick = () => {
+  const a = $("d0").value, b = $("d1").value; if (!a || !b) return;
+  const [f, t] = [new Date(a + "T00:00:00").getTime(), new Date(b + "T00:00:00").getTime() + DAY];
+  setRange(Math.min(f, t - DAY), Math.max(t, f + DAY), "Custom");
+};
+$("rev").onchange = render;
+$("refresh").onclick = () => { loadScript("index.js?_=" + Date.now()).then(() => loadRange(true)); };
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+  const ids = [...document.querySelectorAll(".tab")].map(x => x.dataset.id), i = ids.indexOf(selected);
+  const n = ids[i + (e.key === "ArrowRight" ? 1 : -1)]; if (n) { selected = n; render(); }
+});
+
+// `sublime_log` writes the wanted range into open.js; an already-open viewer notices a newer ts and jumps there by itself
+function applyOpen(first) {
+  const o = window.SUBLOG_OPEN; if (!o || o.ts === lastOpenTs) return false;
+  lastOpenTs = o.ts; setRange(o.from, o.to, o.label); return true;
+}
+if (!applyOpen()) { const [f, t] = PRESETS[0][1](); setRange(f, t, "Today", "Today"); }
+setInterval(async () => { await loadScript("open.js?_=" + Date.now()); applyOpen(); }, 3000);
+</script></body></html>

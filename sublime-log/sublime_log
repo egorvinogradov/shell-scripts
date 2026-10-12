@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""sublime_log — open the Sublime tab change log (what was added / removed in every tab, and when).
+
+  sublime_log                    today (your local time)
+  sublime_log y                  yesterday
+  sublime_log 2026-10-05         that day
+  sublime_log 2026-10-01 2026-10-05   every day from..to (any order)
+  sublime_log 2h | 3d | week | month | all
+  sublime_log status             is the background watcher alive, when did it last log
+
+Flags: --no-open  print the viewer path, do not open a browser (use from scripts / AI)
+       --text     print the changes in the terminal instead of opening the viewer
+       --log-dir  log location (default: ~/.config/sublime-log/config.json, then ~/.local/share/sublime-log)
+Install / remove the background watcher with install.sh / uninstall.sh next to this file.
+"""
+import argparse, glob, json, os, re, subprocess, sys, time
+from datetime import datetime, timedelta
+
+CONFIG = os.path.expanduser("~/.config/sublime-log/config.json")
+DEFAULT_LOG_DIR = os.path.expanduser("~/.local/share/sublime-log")
+HERE = os.path.dirname(os.path.realpath(__file__))
+VIEWER = os.path.join(HERE, "viewer.html")
+
+
+def log_dir(arg):
+    if arg:
+        return os.path.expanduser(arg)
+    if os.environ.get("SUBLIME_LOG_DIR"):
+        return os.path.expanduser(os.environ["SUBLIME_LOG_DIR"])
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            return os.path.expanduser(json.load(f)["log_dir"])
+    except Exception:
+        return DEFAULT_LOG_DIR
+
+
+def ms(dt):
+    return int(dt.timestamp() * 1000)
+
+
+def midnight(d):
+    return datetime(d.year, d.month, d.day)             # naive = local time
+
+
+def parse_range(tokens):
+    now, today = datetime.now(), midnight(datetime.now())
+    one_day = timedelta(days=1)
+    if not tokens or tokens == ["today"]:
+        return ms(today), ms(today + one_day), "Today"
+    dates = []
+    for tok in tokens:
+        t = tok.lower()
+        m = re.fullmatch(r"(\d+)([hd])", t)
+        if len(tokens) == 1 and m:
+            n, unit = int(m.group(1)), m.group(2)
+            delta = timedelta(hours=n) if unit == "h" else timedelta(days=n)
+            return ms(now - delta), ms(now) + 60000, f"Last {n} {'hours' if unit == 'h' else 'days'}"
+        if len(tokens) == 1 and t in ("week", "7"):
+            return ms(today - 6 * one_day), ms(today + one_day), "Last 7 days"
+        if len(tokens) == 1 and t == "month":
+            return ms(today - 29 * one_day), ms(today + one_day), "Last 30 days"
+        if len(tokens) == 1 and t == "all":
+            return 0, ms(today + one_day), "All time"
+        if t in ("y", "yesterday"):
+            dates.append(today - one_day)
+        elif t in ("t", "today"):
+            dates.append(today)
+        else:
+            try:
+                dates.append(datetime.strptime(tok, "%Y-%m-%d"))
+            except ValueError:
+                sys.exit(f"sublime_log: don't understand '{tok}'. Use y, YYYY-MM-DD, two dates, 2h, 3d, week, month, all, or nothing.")
+    if len(dates) > 2:
+        sys.exit("sublime_log: give one date or two (from, to).")
+    a, b = min(dates), max(dates)
+    label = a.strftime("%Y-%m-%d") if a == b else f"{a:%Y-%m-%d} → {b:%Y-%m-%d}"
+    return ms(a), ms(b + one_day), label
+
+
+def read_events(root, t0, t1):
+    out = []
+    # day files are UTC days; read one day either side of the range, then filter by the exact timestamp
+    lo, hi = datetime.utcfromtimestamp(max(t0, 0) / 1000) - timedelta(days=1), datetime.utcfromtimestamp(t1 / 1000) + timedelta(days=1)
+    for p in sorted(glob.glob(os.path.join(root, "days", "*.js"))):
+        day = os.path.basename(p)[:10]
+        if not (lo.strftime("%Y-%m-%d") <= day <= hi.strftime("%Y-%m-%d")):
+            continue
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("SUBLOG_EVENT("):
+                    try:
+                        ev = json.loads(line[len("SUBLOG_EVENT("):].rstrip().rstrip(";").rstrip(")"))
+                    except ValueError:
+                        continue
+                    if t0 <= ev["t"] < t1:
+                        out.append(ev)
+    return sorted(out, key=lambda e: e["t"])
+
+
+def print_text(root, t0, t1, label):
+    events = read_events(root, t0, t1)
+    print(f"Sublime tab changes — {label}  ({datetime.fromtimestamp(t0/1000):%Y-%m-%d %H:%M} → {datetime.fromtimestamp(t1/1000):%Y-%m-%d %H:%M} local)")
+    if not events:
+        print("  (no changes logged in this range)")
+        return
+    tabs = {}
+    for ev in events:
+        tabs.setdefault(ev["id"], []).append(ev)
+    for evs in tabs.values():
+        last = evs[-1]
+        print(f"\n== {last['title']}" + (f"   [{last['file']}]" if last.get("file") else "   [untitled]"))
+        for ev in evs:
+            when = datetime.fromtimestamp(ev["t"] / 1000).strftime("%Y-%m-%d %H:%M:%S")
+            counts = f" +{ev['ins']} -{ev['del']}" if ev.get("h") else ""
+            print(f"  {when}  {ev['k']}{counts}" + (f"  ({ev['note']})" if ev.get("note") else "") + (" [disk]" if ev.get("src") == "disk" else ""))
+            for h in ev.get("h") or []:
+                print(f"    @@ line {h['n']} @@")
+                for l in h["-"]:
+                    print(f"    - {l}")
+                for l in h["+"]:
+                    print(f"    + {l}")
+
+
+def status(root):
+    try:
+        with open(os.path.join(root, "watcher-status.json"), encoding="utf-8") as f:
+            st = json.load(f)
+    except Exception:
+        print(f"no watcher status in {root} — the watcher has not run yet (install.sh)")
+        return 1
+    try:
+        os.kill(st["pid"], 0)
+        alive = True
+    except OSError:
+        alive = False
+    ago = lambda v: "never" if not v else f"{datetime.fromtimestamp(v/1000):%Y-%m-%d %H:%M:%S}"
+    print(f"watcher: {'running' if alive else 'NOT running'} (pid {st['pid']})")
+    print(f"log dir: {root}")
+    print(f"session: {st['session']}")
+    print(f"last check: {ago(st['checked'])}   last logged change: {ago(st.get('last_event'))}   tabs tracked: {st['tabs']}")
+    if st.get("error"):
+        print(f"last error: {st['error']}")
+    return 0 if alive else 1
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("range", nargs="*", help="y | YYYY-MM-DD [YYYY-MM-DD] | 2h | 3d | week | month | all | status")
+    ap.add_argument("--no-open", action="store_true")
+    ap.add_argument("--text", action="store_true")
+    ap.add_argument("--log-dir")
+    a = ap.parse_args()
+    root = log_dir(a.log_dir)
+    if a.range == ["status"]:
+        sys.exit(status(root))
+    t0, t1, label = parse_range(a.range)
+    if a.text:
+        print_text(root, t0, t1, label)
+        return
+    os.makedirs(root, exist_ok=True)
+    link = os.path.join(root, "viewer.html")           # viewer sits in the log dir so its script paths are relative
+    if os.path.realpath(link) != os.path.realpath(VIEWER):
+        if os.path.lexists(link):
+            os.remove(link)
+        os.symlink(VIEWER, link)
+    # `open` drops ?query / #fragment on file:// links, so the range goes through a data file the viewer loads first;
+    # ts changes every run so an already-open viewer tab notices and jumps to the new range by itself.
+    with open(os.path.join(root, "open.js"), "w", encoding="utf-8") as f:
+        f.write("window.SUBLOG_OPEN=" + json.dumps({"from": t0, "to": t1, "label": label, "ts": int(time.time() * 1000)}) + ";\n")
+    print(link)
+    if not a.no_open:
+        subprocess.run(["open", link])
+
+
+if __name__ == "__main__":
+    main()
