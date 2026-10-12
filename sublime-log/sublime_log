@@ -99,7 +99,7 @@ def read_events(root, t0, t1):
 
 def print_text(root, t0, t1, label):
     events = read_events(root, t0, t1)
-    print(f"Sublime tab changes — {label}  ({datetime.fromtimestamp(t0/1000):%Y-%m-%d %H:%M} → {datetime.fromtimestamp(t1/1000):%Y-%m-%d %H:%M} local)")
+    print(f"Sublime tab changes — {label}  ({'start' if t0 == 0 else format(datetime.fromtimestamp(t0/1000), '%Y-%m-%d %H:%M')} → {datetime.fromtimestamp(t1/1000):%Y-%m-%d %H:%M} local)")
     if not events:
         print("  (no changes logged in this range)")
         return
