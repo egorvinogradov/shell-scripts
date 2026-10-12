@@ -21,8 +21,9 @@ SESSION_NAME = "Auto Save Session.sublime_session"
 CONFIG = os.path.expanduser("~/.config/sublime-log/config.json")
 DEFAULT_LOG_DIR = os.path.expanduser("~/.local/share/sublime-log")
 
-QUIET_SECONDS = float(os.environ.get("SUBLOG_QUIET", 5))   # typing pause that closes a burst
-MAX_WAIT_SECONDS = float(os.environ.get("SUBLOG_MAX_WAIT", 30))      # never sit on an unlogged change longer than this, even if typing never stops
+MERGE_SECONDS = 90          # edits to one tab closer together than this are folded into a single log entry
+QUIET_SECONDS = float(os.environ.get("SUBLOG_QUIET", 1))   # typing pause that closes a burst
+MAX_WAIT_SECONDS = float(os.environ.get("SUBLOG_MAX_WAIT", 5))      # never sit on an unlogged change longer than this, even if typing never stops
 SAFETY_CHECK_SECONDS = 60   # stat-only fallback in case a kernel event is ever missed
 MAX_TEXT = 2_000_000        # larger tabs are tracked by hash only
 MAX_HUNK_CHARS = 20_000     # per side of a hunk; longer text is cut and flagged
@@ -187,10 +188,25 @@ class Log:
         day = datetime.fromtimestamp(ev["t"] / 1000, timezone.utc).strftime("%Y-%m-%d")
         name, path = self._part_path(day)
         new_file = not os.path.exists(path)
+        offset = 0 if new_file else os.path.getsize(path)
         with open(path, "a", encoding="utf-8") as f:
-            f.write("SUBLOG_EVENT(" + json.dumps(ev, ensure_ascii=False, separators=(",", ":")) + ");\n")
+            f.write(self._line(ev))
         if new_file:
             self.write_index()
+        return path, offset, os.path.getsize(path)
+
+    @staticmethod
+    def _line(ev):
+        return "SUBLOG_EVENT(" + json.dumps(ev, ensure_ascii=False, separators=(",", ":")) + ");\n"
+
+    def rewrite_last(self, path, offset, ev):
+        """Replace the last line (starting at `offset`) of a day file; ev=None drops it."""
+        with open(path, "r+", encoding="utf-8") as f:
+            f.seek(offset)
+            f.truncate()
+            if ev is not None:
+                f.write(self._line(ev))
+        return path, offset, os.path.getsize(path)
 
     def write_index(self):
         days = {}
@@ -212,6 +228,7 @@ class Watcher:
         self.tabs = {}          # id -> {title,file,text,hash,dirty}
         self.next_untitled = 1
         self.last_event = None
+        self.bursts = {}        # tab id -> the entry still open for merging: {base, t, path, offset, end}
         self._load_state()
         try:
             with open(self.status_path, encoding="utf-8") as f:
@@ -241,7 +258,24 @@ class Watcher:
         if hunks:
             ev.update({"ins": ins, "del": dele, "h": hunks})
         ev.update(extra)
-        self.log.append(ev)
+        b = self.bursts.get(tid)
+        if kind == "edit" and hunks and b and not extra and t - b["t"] <= MERGE_SECONDS * 1000 \
+                and os.path.exists(b["path"]) and os.path.getsize(b["path"]) == b["end"]:
+            h2, i2, d2 = diff_hunks(b["base"], tab["text"])      # one entry for the whole burst: diff from where it began
+            if h2:
+                ev.update({"ins": i2, "del": d2, "h": h2})
+                b["path"], b["offset"], b["end"] = self.log.rewrite_last(b["path"], b["offset"], ev)
+            else:                                                  # typed and deleted again: nothing changed overall
+                self.log.rewrite_last(b["path"], b["offset"], None)
+                del self.bursts[tid]
+            b["t"] = t
+            self.last_event = t
+            return
+        path, offset, end = self.log.append(ev)
+        if kind == "edit" and hunks and not extra:
+            self.bursts[tid] = {"base": self._base, "t": t, "path": path, "offset": offset, "end": end}
+        else:
+            self.bursts.pop(tid, None)
         self.last_event = t
 
     def _match_untitled(self, new_untitled):
@@ -300,6 +334,7 @@ class Watcher:
                     self._emit(t, tid, x, "edit", note="large file, diff skipped")
             elif text != prev["text"]:
                 hunks, ins, dele = diff_hunks(prev["text"], text)
+                self._base = prev["text"]
                 if hunks:
                     self._emit(t, tid, x, "edit", hunks, ins, dele,
                                **({} if x["dirty"] or not x["file"] else {"src": "disk"}))
@@ -362,6 +397,7 @@ class Watcher:
                 continue
             now = time.time()
             if events:
+                log(f"kqueue: {len(events)} event(s)")
                 if any(e.ident == fd_file and e.fflags & (select.KQ_NOTE_DELETE | select.KQ_NOTE_RENAME | select.KQ_NOTE_REVOKE)
                        for e in events) or fd_file is None:
                     time.sleep(0.3)             # atomic-replace write: re-attach to the new inode
@@ -371,10 +407,12 @@ class Watcher:
             elif pending_since is None:         # nothing from the kernel: cheap stat as a safety net
                 new_sig = signature()
                 if new_sig != sig:
+                    log("safety check saw a change the kernel did not report")
                     if new_sig[0] != sig[0]:
                         attach_file()
                     pending_since, last_event_at = now, now
             if pending_since is not None and (now - last_event_at >= QUIET_SECONDS or now - pending_since >= MAX_WAIT_SECONDS):
+                log("processing")
                 self._process_now(self._session_mtime_ms() / 1000)
                 sig = signature()
                 pending_since = last_event_at = None

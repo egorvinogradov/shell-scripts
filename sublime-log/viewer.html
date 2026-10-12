@@ -65,8 +65,6 @@ main{padding:14px;max-width:1100px;margin:0 auto}
 </header>
 <div class="tabs" id="tabs"></div>
 <main id="main"></main>
-<script src="index.js"></script>
-<script src="open.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -194,7 +192,10 @@ function applyOpen(first) {
   const o = window.SUBLOG_OPEN; if (!o || o.ts === lastOpenTs) return false;
   lastOpenTs = o.ts; setRange(o.from, o.to, o.label); return true;
 }
-if (!applyOpen()) { const [f, t] = PRESETS[0][1](); setRange(f, t, "Today", "Today"); }
+(async () => {                                      // fresh files on every page load / refresh
+  await loadScript("index.js?_=" + Date.now()); await loadScript("open.js?_=" + Date.now());
+  if (!applyOpen()) { const [f, t] = PRESETS[0][1](); setRange(f, t, "Today", "Today"); }
+})();
 // the log keeps growing while this tab is open: re-read open.js every 3 s and the log files every 5 s (re-render only if something new arrived)
 setInterval(async () => { await loadScript("open.js?_=" + Date.now()); applyOpen(); }, 3000);
 setInterval(async () => { await loadScript("index.js?_=" + Date.now()); loadRange("live"); }, 5000);
