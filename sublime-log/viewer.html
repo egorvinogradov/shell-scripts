@@ -103,8 +103,10 @@ async function loadRange(force) {
     if (cache[p] && !force) continue;
     cur = []; await loadScript("days/" + p + "?_=" + Date.now()); cache[p] = cur; cur = null;
   }
-  events = parts.flatMap(p => cache[p] || []).filter(e => e.t >= range.from && e.t < range.to).sort((a, b) => a.t - b.t);
-  render();
+  const next = parts.flatMap(p => cache[p] || []).filter(e => e.t >= range.from && e.t < range.to).sort((a, b) => a.t - b.t);
+  const same = next.length === events.length && (!next.length || next[next.length - 1].t === events[events.length - 1].t);
+  events = next;
+  if (!same || force !== "live") render();
 }
 
 function groupTabs() {
@@ -170,7 +172,7 @@ function mark(a, b, which) {           // highlight the middle of `a` that diffe
   return esc(a.slice(0, p)) + "<mark>" + esc(mid) + "</mark>" + esc(a.slice(a.length - s));
 }
 
-function setRange(from, to, label, p) { range = {from, to, label}; preset = p || (PRESETS.some(x => x[0] === label) ? label : null); loadRange(false); }
+function setRange(from, to, label, p) { range = {from, to, label}; preset = p || (PRESETS.some(x => x[0] === label) ? label : null); loadRange(true); }
 
 $("presets").innerHTML = PRESETS.map(([n]) => `<button data-p="${n}">${n}</button>`).join("");
 document.querySelectorAll("#presets button").forEach(b => b.onclick = () => { const [f, t] = PRESETS.find(p => p[0] === b.dataset.p)[1](); setRange(f, t, b.dataset.p, b.dataset.p); });
@@ -193,5 +195,7 @@ function applyOpen(first) {
   lastOpenTs = o.ts; setRange(o.from, o.to, o.label); return true;
 }
 if (!applyOpen()) { const [f, t] = PRESETS[0][1](); setRange(f, t, "Today", "Today"); }
+// the log keeps growing while this tab is open: re-read open.js every 3 s and the log files every 5 s (re-render only if something new arrived)
 setInterval(async () => { await loadScript("open.js?_=" + Date.now()); applyOpen(); }, 3000);
+setInterval(async () => { await loadScript("index.js?_=" + Date.now()); loadRange("live"); }, 5000);
 </script></body></html>
