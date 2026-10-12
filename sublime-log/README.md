@@ -15,7 +15,7 @@ Files here: `sublime_log_watcher.py` (the daemon, kqueue + debounce), `sublime_l
 
 Log dir (default `~/.local/share/sublime-log`, remembered in `~/.config/sublime-log/config.json`):
 `days/YYYY-MM-DD.js` (UTC day, one `SUBLOG_EVENT({...});` JSONP line per change, rolls to `.2.js` past 2 MB), `index.js`, `state.json`,
-`watcher-status.json`, `watcher.log`, `viewer.html` (symlink to the one here), `open.js` (range the CLI asked for).
+`watcher-status.json`, `watcher.log`, `viewer.html` (copy of the one here, refreshed on every run), `open.js` (range the CLI asked for).
 The log holds everything typed in tabs, so the folder is chmod 700 — keep it out of Dropbox.
 
 How it works: Sublime's `Auto Save Session.sublime_session` (newest `Sublime Text*/Local/`) holds unsaved text; clean tabs are read from disk.

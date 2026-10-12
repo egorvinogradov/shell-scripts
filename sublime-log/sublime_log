@@ -13,7 +13,7 @@ Flags: --no-open  print the viewer path, do not open a browser (use from scripts
        --log-dir  log location (default: ~/.config/sublime-log/config.json, then ~/.local/share/sublime-log)
 Install / remove the background watcher with install.sh / uninstall.sh next to this file.
 """
-import argparse, glob, json, os, re, subprocess, sys, time
+import argparse, glob, json, os, re, shutil, subprocess, sys, time
 from datetime import datetime, timedelta
 
 CONFIG = os.path.expanduser("~/.config/sublime-log/config.json")
@@ -158,11 +158,10 @@ def main():
         print_text(root, t0, t1, label)
         return
     os.makedirs(root, exist_ok=True)
-    link = os.path.join(root, "viewer.html")           # viewer sits in the log dir so its script paths are relative
-    if os.path.realpath(link) != os.path.realpath(VIEWER):
-        if os.path.lexists(link):
-            os.remove(link)
-        os.symlink(VIEWER, link)
+    link = os.path.join(root, "viewer.html")           # a COPY in the log dir: macOS `open` resolves symlinks, which would break the relative script paths
+    if os.path.islink(link):
+        os.remove(link)
+    shutil.copyfile(VIEWER, link)
     # `open` drops ?query / #fragment on file:// links, so the range goes through a data file the viewer loads first;
     # ts changes every run so an already-open viewer tab notices and jumps to the new range by itself.
     with open(os.path.join(root, "open.js"), "w", encoding="utf-8") as f:
