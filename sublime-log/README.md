@@ -33,3 +33,5 @@ Version history is rebuilt by undoing log entries from the current text (the vie
 changed while not tracked). Tabs over ~500 KB are listed but not shown in the File view.
 
 Tests: `tests/run_all.sh` (watcher logic + fuzz, viewer helpers in node, the viewer clicked through in headless Chrome).
+
+`import_archive.py ARCHIVE_DIR` folds an `archive-*` folder (an old-format log the watcher moved aside) into the live log so history is continuous; it verifies the join per tab and backs up first.

@@ -258,7 +258,7 @@ function lastChange(tab) {
   return t;
 }
 function blameLabel(meta, tab) {
-  if (meta.k === "baseline") return tab.file ? `<b>saved</b>${esc(dateShort(meta.t))}` : `<b>before tracking</b>`;
+  if (meta.k === "baseline") return tab.file && !meta.unknown ? `<b>saved</b>${esc(dateShort(meta.t))}` : `<b>before tracking</b>`;
   const kind = {new: "new tab", edit: "edited", unsaved: "unsaved at start"}[meta.k] || meta.k;
   return `<b>${kind}</b>${esc(dateShort(meta.t))}`;
 }
@@ -362,12 +362,12 @@ async function renderDetail(tab, segIdx) {
   if (sel.ver != null || sel.line == null || !segIdx[sel.line]) { box.hidden = true; return; }
   const seg = segIdx[sel.line], meta = tab.ev[seg.e] || {t: 0, k: "baseline"};
   const a = seg.start, b = seg.start + seg.count - 1;
-  const kindName = meta.k === "baseline" ? (tab.file ? "already in the file" : "already there") : (({new: "new tab", edit: "edited", unsaved: "unsaved at start"})[meta.k] || meta.k);
+  const kindName = meta.k === "baseline" ? (tab.file && !meta.unknown ? "already in the file" : "already there") : (({new: "new tab", edit: "edited", unsaved: "unsaved at start"})[meta.k] || meta.k);
   const head = `<h3>${a === b ? "Line " + a : "Lines " + a + "–" + b} <span class="chip ${meta.k === "baseline" ? "" : "new"}">${esc(kindName)}</span>
     <span class="lbl">${esc(dateFull(meta.t))} · ${esc(L.relTime(meta.t, Date.now()))}</span><button class="x" id="dclose">✕</button></h3>`;
   const show = html => { box.innerHTML = head + html; box.hidden = false; $("dclose").onclick = closeDetail; };
   if (meta.k === "baseline") {
-    show(`<div class="note">${tab.file ? "This text was already in the file when tracking started (file last saved " + esc(dateFull(meta.t)) + "). Anything changed later is listed under its own time." : "This text was already in the tab when tracking started."}</div>`);
+    show(`<div class="note">${tab.file && !meta.unknown ? "This text was already in the file when tracking started (file last saved " + esc(dateFull(meta.t)) + "). Anything changed later is listed under its own time." : "This text was already in the tab when tracking started."}</div>`);
     return;
   }
   show(`<div class="note">Loading history…</div>`);

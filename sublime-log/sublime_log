@@ -142,7 +142,7 @@ def print_blame(root):
         lines = tab["text"].split("\n")
         for start, n, e in tab["segs"]:
             meta = tab["ev"].get(str(e), {"t": 0, "k": "baseline"})
-            label = ("saved " + stamp(meta["t"]) if tab["file"] else "before tracking") if meta["k"] == "baseline" else \
+            label = ("saved " + stamp(meta["t"]) if tab["file"] and not meta.get("unknown") else "before tracking") if meta["k"] == "baseline" else \
                 f"{ {'new': 'new tab', 'edit': 'edited', 'unsaved': 'unsaved at start'}.get(meta['k'], meta['k']) } {stamp(meta['t'])}"
             for i in range(start - 1, start - 1 + n):
                 print(f"{label if i == start - 1 else '':<30} {i + 1:>5}  {lines[i]}")
