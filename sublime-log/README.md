@@ -22,7 +22,7 @@ Log dir (default `~/.local/share/sublime-log`, remembered in `~/.config/sublime-
 The log holds everything typed in tabs, so the folder is chmod 700 — keep it out of Dropbox.
 
 How it works: Sublime's `Auto Save Session.sublime_session` (newest `Sublime Text*/Local/`) holds unsaved text; clean tabs are read from disk.
-The watcher is woken by kqueue, logs within ~1 s of each Sublime flush (never more than 5 s), and folds edits to one tab less than 90 s apart into a single entry.
+The watcher is woken by kqueue, logs within ~1 s of each Sublime flush (never more than 5 s), and folds edits to one tab less than 7.5 s apart into a single entry.
 Event time = the session file's mtime, i.e. the last Sublime flush, so within seconds of the typing. Untitled tabs have no id in the session,
 so they are matched between snapshots by text similarity / tab slot. Nothing is recorded while the Mac is off or Sublime has no windows.
 
