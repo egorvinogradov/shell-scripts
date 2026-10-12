@@ -4,18 +4,19 @@
 <style>
 :root{--bg:#1e1f1c;--panel:#272822;--tabbar:#161614;--tab:#1f201c;--fg:#e6e6dc;--mut:#8f908a;--line:#3a3b35;--acc:#66d9ef;--acc-fg:#111;
 --add-bg:rgba(166,226,46,.14);--add-fg:#b6e354;--add-mark:rgba(166,226,46,.38);
---del-bg:rgba(249,38,114,.15);--del-fg:#ff7aa6;--del-mark:rgba(249,38,114,.40)}
+--del-bg:rgba(249,38,114,.15);--del-fg:#ff7aa6;--del-mark:rgba(249,38,114,.40);--sel:rgba(102,217,239,.13);--hot:#66d9ef}
 @media(prefers-color-scheme:light){:root{--bg:#fafaf8;--panel:#fff;--tabbar:#e9e9e4;--tab:#dededa;--fg:#222;--mut:#6c6c66;--line:#d8d8d2;--acc:#0b6fa4;--acc-fg:#fff;
 --add-bg:rgba(46,160,67,.13);--add-fg:#1a7f37;--add-mark:rgba(46,160,67,.32);
---del-bg:rgba(215,58,73,.12);--del-fg:#b4232f;--del-mark:rgba(215,58,73,.30)}}
+--del-bg:rgba(215,58,73,.12);--del-fg:#b4232f;--del-mark:rgba(215,58,73,.30);--sel:rgba(11,111,164,.10);--hot:#0b6fa4}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 -apple-system,system-ui,sans-serif;min-height:100vh}
 .mono{font:12.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
 header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
 h1{font-size:14px;margin:0;font-weight:600}
-.range{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
-button,input{font:inherit;font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
-button{cursor:pointer}button:hover{border-color:var(--mut)}
+.range,.seg{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.seg{gap:0}.seg button{border-radius:0;margin-left:-1px}.seg button:first-child{border-radius:6px 0 0 6px;margin-left:0}.seg button:last-child{border-radius:0 6px 6px 0}
+button,input,select{font:inherit;font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+button{cursor:pointer}button:hover{border-color:var(--mut)}button:disabled{opacity:.4;cursor:default}
 button.on{background:var(--acc);border-color:var(--acc);color:var(--acc-fg);font-weight:600}
 input[type=date]{padding:2px 6px;color-scheme:light dark}
 .sp{flex:1}
@@ -29,16 +30,16 @@ input[type=date]{padding:2px 6px;color-scheme:light dark}
 .tab .n{flex:none;font-size:11px;color:var(--mut)}
 .tab .n b{font-weight:600}.n .a{color:var(--add-fg)}.n .d{color:var(--del-fg)}
 .tab.closed .t{text-decoration:line-through;text-decoration-color:var(--mut)}
-main{padding:14px;max-width:1100px;margin:0 auto}
+main{padding:14px;max-width:1200px;margin:0 auto;padding-bottom:40px}
 .meta{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;margin-bottom:12px}
 .meta h2{margin:0;font-size:15px}
 .meta .path{color:var(--mut);font-size:12px;word-break:break-all}
+.chip{padding:0 7px;border-radius:9px;background:var(--tab);color:var(--mut);font-size:11px;display:inline-block}
+.chip.new,.chip.open{color:var(--add-fg)}.chip.close{color:var(--del-fg)}.chip.save{color:var(--acc)}.chip.warn{color:#e8a317}
 .day{margin:18px 0 6px;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
 .ev{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:var(--panel);overflow:hidden}
 .evh{display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px}
 .evh .time{font-variant-numeric:tabular-nums;font-weight:600}
-.chip{padding:0 7px;border-radius:9px;background:var(--tab);color:var(--mut);font-size:11px}
-.chip.new,.chip.open{color:var(--add-fg)}.chip.close{color:var(--del-fg)}.chip.save{color:var(--acc)}
 .cnt .a{color:var(--add-fg)}.cnt .d{color:var(--del-fg)}.cnt{font-variant-numeric:tabular-nums}
 .hunk{border-top:1px solid var(--line)}.hunk:first-of-type{border-top:0}
 .at{padding:2px 10px;color:var(--mut);background:var(--tabbar);font-size:11px}
@@ -46,34 +47,59 @@ main{padding:14px;max-width:1100px;margin:0 auto}
 .row .ln{color:var(--mut);text-align:right;padding-right:8px;user-select:none;opacity:.8}
 .row .sg{text-align:center;user-select:none}
 .row.add{background:var(--add-bg);color:var(--add-fg)}.row.del{background:var(--del-bg);color:var(--del-fg)}
-.row.add mark{background:var(--add-mark);color:inherit;border-radius:2px}.row.del mark{background:var(--del-mark);color:inherit;border-radius:2px}
+.row mark{color:inherit;border-radius:2px}.row.add mark{background:var(--add-mark)}.row.del mark{background:var(--del-mark)}
 .row .tx{padding-right:10px}
 .note{padding:6px 10px;color:var(--mut);font-size:12px}
 .empty{padding:48px 14px;text-align:center;color:var(--mut)}
 .empty code{background:var(--tab);padding:1px 6px;border-radius:4px}
 .sw{display:flex;gap:6px;align-items:center}
-@media(max-width:640px){.row{grid-template-columns:34px 16px minmax(0,1fr)}}
+/* file (blame) view */
+.file{border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden}
+.fr{display:grid;grid-template-columns:168px 50px minmax(0,1fr);cursor:pointer}
+.fr .bl{padding:0 8px;border-left:3px solid transparent;font:11.5px/1.45 -apple-system,system-ui,sans-serif;color:var(--mut);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none}
+.fr .bl b{font-weight:600;color:var(--fg);margin-right:6px}
+.fr.hot .bl{border-left-color:var(--hot)}.fr.hot .bl b{color:var(--hot)}
+.fr.first{border-top:1px solid var(--line)}.fr.first:first-child{border-top:0}
+.fr .no{text-align:right;padding-right:10px;color:var(--mut);user-select:none;opacity:.8}
+.fr .cd{white-space:pre-wrap;word-break:break-word;padding-right:10px;min-height:1.45em}
+.fr:hover{background:var(--sel)}.fr.segsel{background:var(--sel)}.fr.linesel .no{color:var(--acc);font-weight:700}
+.fr.add{background:var(--add-bg)}.fr.add .cd{color:var(--add-fg)}.fr.del{background:var(--del-bg);cursor:default}.fr.del .cd{color:var(--del-fg)}
+.fr.del .no,.fr.del .bl{opacity:.6}
+.banner{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.banner select{max-width:420px}
+.detail{position:sticky;bottom:0;border-top:2px solid var(--acc);background:var(--panel);padding:10px 14px;max-height:46vh;overflow:auto;box-shadow:0 -4px 14px rgba(0,0,0,.25)}
+.detail[hidden]{display:none}
+.detail h3{margin:0 0 6px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.detail .x{margin-left:auto}
+.detail .btns{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+@media(max-width:640px){.row{grid-template-columns:34px 16px minmax(0,1fr)}.fr{grid-template-columns:110px 40px minmax(0,1fr)}}
 </style></head><body>
 <header>
   <h1>Sublime change log</h1>
+  <div class="seg"><button id="m-file" data-m="file">File</button><button id="m-changes" data-m="changes">Changes</button></div>
   <div class="range" id="presets"></div>
   <div class="range"><input type="date" id="d0"><span class="lbl">→</span><input type="date" id="d1"><button id="go">Show</button></div>
   <span class="sp"></span>
-  <label class="sw lbl"><input type="checkbox" id="rev"> newest first</label>
+  <label class="sw lbl" id="revwrap"><input type="checkbox" id="rev"> newest first</label>
   <button id="refresh" title="Reload the log files">↻</button>
   <span class="lbl" id="range-lbl"></span>
 </header>
 <div class="tabs" id="tabs"></div>
 <main id="main"></main>
+<div class="detail" id="detail" hidden></div>
+<script src="viewer_lib.js"></script>
 <script>
 "use strict";
+const L = window.SublogLib;
 const $ = id => document.getElementById(id);
-const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const DAY = 86400000;
-let range = {from: 0, to: 0, label: ""}, preset = null, events = [], selected = null, lastOpenTs = 0;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const DAY = 86400000, MAX_ROWS = 20000;
+let mode = "file", range = {from: 0, to: 0, label: ""}, preset = null, events = [], lastOpenTs = 0;
+let sel = {tab: null, ver: null, line: null};          // ver: number of log entries applied (null = current text)
 const cache = {};                                    // part file name -> events (file:// has no fetch, so day files are loaded as <script>)
-let cur = null;
+let cur = null, allLoaded = false, allEvents = [];
 window.SUBLOG_EVENT = ev => { if (cur) cur.push(ev); };
+const CUR = () => window.SUBLOG_CURRENT || {tabs: [], updated: 0};
 
 const localMidnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 const PRESETS = [
@@ -87,51 +113,128 @@ const dayStr = ms => { const d = new Date(ms); return d.getFullYear() + "-" + St
 const utcDay = ms => new Date(ms).toISOString().slice(0, 10);
 const timeStr = ms => new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
 const dateLong = ms => new Date(ms).toLocaleDateString([], {weekday: "long", year: "numeric", month: "long", day: "numeric"});
+const dateShort = ms => new Date(ms).toLocaleDateString([], {month: "short", day: "numeric", year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : "numeric"}) + " " +
+  new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+const dateFull = ms => new Date(ms).toLocaleString([], {dateStyle: "full", timeStyle: "medium"});
+const inRange = ms => ms >= range.from && ms < range.to;
 
 function loadScript(src) {
   return new Promise(res => { const s = document.createElement("script"); s.src = src; s.onload = s.onerror = () => { s.remove(); res(); }; document.head.appendChild(s); });
 }
+const bust = f => f + "?_=" + Date.now();
 
-async function loadRange(force) {
+// ------------------------------------------------------------------ data
+async function loadParts(fromDay, toDay, force) {
   const idx = (window.SUBLOG_INDEX || {}).days || {};
-  const lo = utcDay(Math.max(range.from, 0) - DAY), hi = utcDay(range.to + DAY);
   const parts = [];
-  for (const day of Object.keys(idx).sort()) if (day >= lo && day <= hi) parts.push(...idx[day]);
+  for (const day of Object.keys(idx).sort()) if (day >= fromDay && day <= toDay) parts.push(...idx[day]);
   for (const p of parts) {
     if (cache[p] && !force) continue;
-    cur = []; await loadScript("days/" + p + "?_=" + Date.now()); cache[p] = cur; cur = null;
+    cur = []; await loadScript(bust("days/" + p)); cache[p] = cur; cur = null;
   }
-  const next = parts.flatMap(p => cache[p] || []).filter(e => e.t >= range.from && e.t < range.to).sort((a, b) => a.t - b.t);
-  const same = next.length === events.length && (!next.length || next[next.length - 1].t === events[events.length - 1].t);
+  return parts.flatMap(p => cache[p] || []);
+}
+async function loadRangeEvents(force) {
+  const all = await loadParts(utcDay(Math.max(range.from, 0) - DAY), utcDay(range.to + DAY), force);
+  return all.filter(e => e.t >= range.from && e.t < range.to).sort((a, b) => a.t - b.t);
+}
+async function ensureAll(force) {                    // version history needs every entry of a tab, not just the selected range
+  if (allLoaded && !force) return allEvents;
+  allEvents = await loadParts("0000-00-00", "9999-99-99", force);
+  allLoaded = true;
+  return allEvents;
+}
+
+async function refresh(force, live) {
+  await loadScript(bust("index.js"));
+  await loadScript(bust("current.js"));
+  const next = await loadRangeEvents(force);
+  const stamp = CUR().updated + ":" + next.length + ":" + (next.length ? next[next.length - 1].t : 0);
+  if (live && stamp === refresh.last) return;        // nothing new: leave the page alone (scroll, selection)
+  refresh.last = stamp;
   events = next;
-  if (!same || force !== "live") render();
+  allLoaded = false;                                 // an entry may have been merged or rewritten since
+  await render();
 }
 
-function groupTabs() {
-  const m = new Map();
-  for (const e of events) {
-    if (!m.has(e.id)) m.set(e.id, {id: e.id, first: e.t, evs: [], ins: 0, del: 0});
-    const g = m.get(e.id); g.evs.push(e); g.ins += e.ins || 0; g.del += e.del || 0;
-    g.title = e.title; g.file = e.file; g.closed = e.k === "close";
-  }
-  return [...m.values()].sort((a, b) => a.first - b.first);   // same order as the tabs were created
+// ------------------------------------------------------------------ url state
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get("m")) mode = p.get("m") === "changes" ? "changes" : "file";
+  sel = {tab: p.get("tab"), ver: p.get("v") === null ? null : +p.get("v"), line: p.get("l") === null ? null : +p.get("l")};
+}
+function writeHash() {
+  const p = new URLSearchParams();
+  p.set("m", mode);
+  if (sel.tab) p.set("tab", sel.tab);
+  if (mode === "file" && sel.ver != null) p.set("v", sel.ver);
+  if (mode === "file" && sel.line != null) p.set("l", sel.line);
+  try { history.replaceState(null, "", "#" + p.toString()); } catch (e) {}
 }
 
-function render() {
+// ------------------------------------------------------------------ shared pieces
+const KIND = {new: "new tab", open: "opened", edit: "edited", save: "saved", close: "closed"};
+function hunkHtml(h) {
+  const del = h["-"], add = h["+"];
+  const pair = del.length && del.length === add.length && del.length <= 60;      // line i replaced by line i -> show which characters changed
+  let out = `<div class="hunk mono"><div class="at">line ${h.n}${h.cut ? " · long block, cut" : ""}</div>`;
+  del.forEach((l, i) => out += row("del", h.o + i, "−", pair ? mark(l, add[i]) : esc(l)));
+  add.forEach((l, i) => out += row("add", h.n + i, "+", pair ? mark(l, del[i]) : esc(l)));
+  return out + "</div>";
+}
+const row = (cls, n, sg, tx) => `<div class="row ${cls}"><span class="ln">${n}</span><span class="sg">${sg}</span><span class="tx">${tx || " "}</span></div>`;
+function mark(a, b) {           // highlight the middle of `a` that differs from `b`
+  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let s = 0; while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
+  const mid = a.slice(p, a.length - s);
+  if (!mid || (p === 0 && s === 0)) return esc(a);
+  return esc(a.slice(0, p)) + "<mark>" + esc(mid) + "</mark>" + esc(a.slice(a.length - s));
+}
+function eventHtml(e) {
+  const cnt = e.h ? `<span class="cnt"><span class="a">+${e.ins}</span> <span class="d">−${e.del}</span></span>` : "";
+  let body = "";
+  for (const h of e.h || []) body += hunkHtml(h);
+  if (e.note) body += `<div class="note">${esc(e.note)}</div>`;
+  if (e.k === "save" && e.as) body += `<div class="note">saved as ${esc(e.as)}</div>`;
+  return `<div class="ev"><div class="evh"><span class="time">${timeStr(e.t)}</span><span class="chip ${e.k}">${KIND[e.k] || e.k}</span>${e.src === "disk" ? '<span class="chip">changed on disk</span>' : ""}${e.saved === false ? '<span class="chip">unsaved</span>' : ""}${cnt}</div>${body}</div>`;
+}
+
+// ------------------------------------------------------------------ render
+async function render() {
+  const y = window.scrollY;
   $("range-lbl").textContent = range.label + " · " + (range.from ? dayStr(range.from) : "start") + " → " + dayStr(range.to - 1) + " · local time";
   document.querySelectorAll("#presets button").forEach(b => b.classList.toggle("on", b.dataset.p === preset));
   $("d0").value = range.from ? dayStr(range.from) : ""; $("d1").value = dayStr(range.to - 1);
-  const tabs = groupTabs();
-  if (!tabs.find(t => t.id === selected)) selected = tabs.length ? tabs[tabs.length - 1].id : null;   // newest tab first view
-  $("tabs").innerHTML = tabs.map(t => `<div class="tab ${t.file ? "" : "untitled"} ${t.id === selected ? "sel" : ""} ${t.closed ? "closed" : ""}" data-id="${esc(t.id)}" title="${esc(t.file || "untitled tab")}">
-    <span class="t">${esc(t.title)}</span><span class="n"><b class="a">+${t.ins}</b> <b class="d">−${t.del}</b></span></div>`).join("");
-  document.querySelectorAll(".tab").forEach(el => el.onclick = () => { selected = el.dataset.id; render(); });
-  const main = $("main");
-  const t = tabs.find(x => x.id === selected);
-  if (!t) {
-    main.innerHTML = `<div class="empty">No changes logged in this range.<br><br>Is the watcher running? <code>sublime_log status</code></div>`;
-    return;
+  $("m-file").classList.toggle("on", mode === "file"); $("m-changes").classList.toggle("on", mode === "changes");
+  $("revwrap").style.display = mode === "changes" ? "" : "none";
+  if (mode === "file") await renderFile(); else renderChanges();
+  writeHash();
+  window.scrollTo(0, y);
+}
+
+// ---- changes mode
+function groupTabs() {
+  const canon = L.aliasMap(CUR().tabs);
+  const m = new Map();
+  for (const e of events) {
+    const id = canon[e.id] || e.id;
+    if (!m.has(id)) m.set(id, {id, first: e.t, evs: [], ins: 0, del: 0});
+    const g = m.get(id); g.evs.push(e); g.ins += e.ins || 0; g.del += e.del || 0;
+    g.title = e.title; g.file = e.file; g.closed = e.k === "close";
   }
+  const open = new Map(CUR().tabs.map(t => [t.id, t]));
+  for (const g of m.values()) if (open.has(g.id)) { g.title = open.get(g.id).title; g.file = open.get(g.id).file; g.closed = false; }
+  return [...m.values()].sort((a, b) => a.first - b.first);   // same order as the tabs were created
+}
+function renderChanges() {
+  $("detail").hidden = true;
+  const tabs = groupTabs();
+  if (!tabs.find(t => t.id === sel.tab)) sel.tab = tabs.length ? tabs[tabs.length - 1].id : null;
+  $("tabs").innerHTML = tabs.map(t => `<div class="tab ${t.file ? "" : "untitled"} ${t.id === sel.tab ? "sel" : ""} ${t.closed ? "closed" : ""}" data-id="${esc(t.id)}" title="${esc(t.file || "untitled tab")}">
+    <span class="t">${esc(t.title)}</span><span class="n"><b class="a">+${t.ins}</b> <b class="d">−${t.del}</b></span></div>`).join("");
+  bindTabs();
+  const t = tabs.find(x => x.id === sel.tab), main = $("main");
+  if (!t) { main.innerHTML = `<div class="empty">No changes logged in this range.<br><br>Is the watcher running? <code>sublime_log status</code></div>`; return; }
   const evs = $("rev").checked ? [...t.evs].reverse() : t.evs;
   let html = `<div class="meta"><h2>${esc(t.title)}</h2><span class="cnt"><span class="a">+${t.ins}</span> <span class="d">−${t.del}</span> lines</span><span class="path">${esc(t.file || "untitled tab — never saved")}</span></div>`;
   let lastDay = "";
@@ -143,35 +246,155 @@ function render() {
   main.innerHTML = html;
 }
 
-const KIND = {new: "new tab", open: "opened", edit: "edited", save: "saved", close: "closed"};
-function eventHtml(e) {
-  const cnt = e.h ? `<span class="cnt"><span class="a">+${e.ins}</span> <span class="d">−${e.del}</span></span>` : "";
-  let body = "";
-  for (const h of e.h || []) body += hunkHtml(h);
-  if (e.note) body += `<div class="note">${esc(e.note)}</div>`;
-  return `<div class="ev"><div class="evh"><span class="time">${timeStr(e.t)}</span><span class="chip ${e.k}">${KIND[e.k] || e.k}</span>${e.src === "disk" ? '<span class="chip">changed on disk</span>' : ""}${e.saved === false ? '<span class="chip">unsaved</span>' : ""}${cnt}</div>${body}</div>`;
+// ---- file mode
+function changedInRange(tab) {
+  let n = 0;
+  for (const [, count, e] of tab.segs) { const m = tab.ev[e]; if (m && m.k !== "baseline" && inRange(m.t)) n += count; }
+  return n;
+}
+function lastChange(tab) {
+  let t = 0;
+  for (const [, , e] of tab.segs) { const m = tab.ev[e]; if (m && m.k !== "baseline") t = Math.max(t, m.t); }
+  return t;
+}
+function blameLabel(meta, tab) {
+  if (meta.k === "baseline") return tab.file ? `<b>saved</b>${esc(dateShort(meta.t))}` : `<b>before tracking</b>`;
+  const kind = {new: "new tab", edit: "edited", unsaved: "unsaved at start"}[meta.k] || meta.k;
+  return `<b>${kind}</b>${esc(dateShort(meta.t))}`;
+}
+async function renderFile() {
+  const tabs = CUR().tabs;
+  if (!tabs.length) {
+    $("tabs").innerHTML = ""; $("detail").hidden = true;
+    $("main").innerHTML = `<div class="empty">No open tabs known yet.<br><br>Is the watcher running? <code>sublime_log status</code></div>`;
+    return;
+  }
+  if (!tabs.find(t => t.id === sel.tab)) {
+    sel.tab = tabs.reduce((best, t) => lastChange(t) >= lastChange(best) ? t : best, tabs[0]).id;   // the tab changed most recently
+    sel.ver = null; sel.line = null;
+  }
+  const tab = tabs.find(t => t.id === sel.tab);
+  $("tabs").innerHTML = tabs.map(t => { const n = changedInRange(t);
+    return `<div class="tab ${t.file ? "" : "untitled"} ${t.id === sel.tab ? "sel" : ""}" data-id="${esc(t.id)}" title="${esc(t.file || "untitled tab")}">
+    <span class="t">${esc(t.title)}</span>${n ? `<span class="n"><b class="a">${n}</b> changed</span>` : ""}</div>`; }).join("");
+  bindTabs();
+  const main = $("main");
+  if (tab.text === null) {
+    main.innerHTML = `<div class="meta"><h2>${esc(tab.title)}</h2><span class="path">${esc(tab.file || "untitled tab")}</span></div><div class="empty">This tab is too large to show here (limit about 500 KB).</div>`;
+    $("detail").hidden = true; return;
+  }
+  let html = `<div class="meta"><h2>${esc(tab.title)}</h2>${tab.dirty ? '<span class="chip warn">unsaved changes</span>' : ""}<span class="path">${esc(tab.file || "untitled tab — never saved")}</span></div>`;
+
+  let lines = tab.text.split("\n"), addedAt = null, removedBefore = {}, vevs = null;
+  if (sel.ver != null) {
+    await ensureAll();
+    vevs = L.tabEvents(tab, allEvents);
+    sel.ver = Math.max(0, Math.min(sel.ver, vevs.length));
+    let versionNote = "";
+    const r = L.linesAt(tab.text.split("\n"), vevs, sel.ver);
+    if (!r.ok) {
+      const bad = vevs[r.failedAt];
+      versionNote = `<span class="chip warn">History before ${esc(dateShort(bad.t))} can't be rebuilt (the file changed while it wasn't being tracked, or a block was too long to keep).</span>`;
+      sel.ver = Math.min(vevs.length, r.failedAt + 1);
+      lines = L.linesAt(tab.text.split("\n"), vevs, sel.ver).lines;
+    } else lines = r.lines;
+    if (sel.ver > 0) {
+      const ev = vevs[sel.ver - 1]; addedAt = new Set();
+      for (const h of ev.h) { for (let i = 0; i < h["+"].length; i++) addedAt.add(h.n + i); removedBefore[h.n] = (removedBefore[h.n] || []).concat(h["-"]); }
+    }
+    html += versionBanner(vevs, versionNote);
+  } else {
+    html += `<div class="banner"><span class="lbl">Current text · click a line to see when it was added and to open earlier versions.</span><span class="sp"></span><button id="hist">Version history</button></div>`;
+  }
+
+  const segIdx = L.segIndex(tab), selSeg = sel.line != null && sel.ver == null ? segIdx[sel.line] : null;
+  const delRow = l => `<div class="fr del"><div class="bl"></div><div class="no">−</div><div class="cd">${esc(l)}</div></div>`;
+  const vEv = vevs && sel.ver > 0 ? vevs[sel.ver - 1] : null;
+  let rows = "";
+  const total = Math.min(lines.length, MAX_ROWS);
+  for (let i = 1; i <= total; i++) {
+    if (removedBefore[i]) for (const l of removedBefore[i]) rows += delRow(l);
+    if (sel.ver == null) {
+      const seg = segIdx[i], meta = tab.ev[seg.e] || {t: 0, k: "baseline"}, first = seg.start === i;
+      const hot = meta.k !== "baseline" && inRange(meta.t);
+      rows += `<div class="fr ${first ? "first" : ""} ${hot ? "hot" : ""} ${selSeg && selSeg.start === seg.start ? "segsel" : ""} ${sel.line === i ? "linesel" : ""}" data-line="${i}" data-seg="${seg.start}">
+        <div class="bl" title="${esc(dateFull(meta.t))}">${first ? blameLabel(meta, tab) : ""}</div><div class="no">${i}</div><div class="cd">${esc(lines[i - 1])}</div></div>`;
+    } else {
+      const added = addedAt && addedAt.has(i);
+      rows += `<div class="fr ${added ? "add" : ""}" data-line="${i}"><div class="bl">${added && vEv && !addedAt.has(i - 1) ? `<b>${esc(KIND[vEv.k] || vEv.k)}</b>${esc(dateShort(vEv.t))}` : ""}</div><div class="no">${i}</div><div class="cd">${esc(lines[i - 1])}</div></div>`;
+    }
+  }
+  if (removedBefore[lines.length + 1]) for (const l of removedBefore[lines.length + 1]) rows += delRow(l);
+  if (lines.length > MAX_ROWS) rows += `<div class="note">… ${lines.length - MAX_ROWS} more lines not shown</div>`;
+  html += `<div class="file mono" id="file">${rows}</div>`;
+  main.innerHTML = html;
+  const h = $("hist"); if (h) h.onclick = () => openHistory(tab);
+  bindVersionBanner(vevs);
+  await renderDetail(tab, segIdx);
 }
 
-function hunkHtml(h) {
-  const del = h["-"], add = h["+"];
-  const pair = del.length && del.length === add.length && del.length <= 60;      // line i replaced by line i -> show which characters changed
-  let out = `<div class="hunk mono"><div class="at">line ${h.n}${h.cut ? " · long block, cut" : ""}</div>`;
-  del.forEach((l, i) => out += row("del", h.o + i, "−", pair ? mark(l, add[i], 0) : esc(l)));
-  add.forEach((l, i) => out += row("add", h.n + i, "+", pair ? mark(l, del[i], 1) : esc(l)));
-  return out + "</div>";
+function versionBanner(vevs, note) {
+  const opts = [`<option value="">Current text</option>`];
+  for (let i = vevs.length; i >= 1; i--) { const e = vevs[i - 1];
+    opts.push(`<option value="${i}" ${sel.ver === i ? "selected" : ""}>${esc(dateShort(e.t))} · ${esc(KIND[e.k] || e.k)} · +${e.ins} −${e.del}</option>`); }
+  opts.push(`<option value="0" ${sel.ver === 0 ? "selected" : ""}>Tracking start (before the first logged change)</option>`);
+  const ev = sel.ver > 0 ? vevs[sel.ver - 1] : null;
+  return `<div class="banner"><b>Version ${sel.ver} of ${vevs.length}</b>
+    <span class="lbl">${ev ? "just after " + esc(dateFull(ev.t)) : "before the first logged change"}</span>
+    <button id="vold" ${sel.ver <= 0 ? "disabled" : ""}>◀ older</button><button id="vnew" ${sel.ver >= vevs.length ? "disabled" : ""}>newer ▶</button>
+    <select id="vsel">${opts.join("")}</select><button id="vcur">Back to current</button>${note}</div>`;
 }
-const row = (cls, n, sg, tx) => `<div class="row ${cls}"><span class="ln">${n}</span><span class="sg">${sg}</span><span class="tx">${tx || " "}</span></div>`;
-
-function mark(a, b, which) {           // highlight the middle of `a` that differs from `b`
-  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
-  let s = 0; while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
-  const mid = a.slice(p, a.length - s);
-  if (!mid || (p === 0 && s === 0)) return esc(a);
-  return esc(a.slice(0, p)) + "<mark>" + esc(mid) + "</mark>" + esc(a.slice(a.length - s));
+function bindVersionBanner(vevs) {
+  if (sel.ver == null) return;
+  const go = v => { sel.ver = v; sel.line = null; render(); };
+  $("vold").onclick = () => go(sel.ver - 1);
+  $("vnew").onclick = () => go(sel.ver + 1 > vevs.length ? null : sel.ver + 1);
+  $("vcur").onclick = () => go(null);
+  $("vsel").onchange = e => go(e.target.value === "" ? null : +e.target.value);
+}
+async function openHistory(tab) {
+  await ensureAll();
+  sel.ver = L.tabEvents(tab, allEvents).length; sel.line = null; render();
 }
 
-function setRange(from, to, label, p) { range = {from, to, label}; preset = p || (PRESETS.some(x => x[0] === label) ? label : null); loadRange(true); }
+async function renderDetail(tab, segIdx) {
+  const box = $("detail");
+  if (sel.ver != null || sel.line == null || !segIdx[sel.line]) { box.hidden = true; return; }
+  const seg = segIdx[sel.line], meta = tab.ev[seg.e] || {t: 0, k: "baseline"};
+  const a = seg.start, b = seg.start + seg.count - 1;
+  const kindName = meta.k === "baseline" ? (tab.file ? "already in the file" : "already there") : (({new: "new tab", edit: "edited", unsaved: "unsaved at start"})[meta.k] || meta.k);
+  const head = `<h3>${a === b ? "Line " + a : "Lines " + a + "–" + b} <span class="chip ${meta.k === "baseline" ? "" : "new"}">${esc(kindName)}</span>
+    <span class="lbl">${esc(dateFull(meta.t))} · ${esc(L.relTime(meta.t, Date.now()))}</span><button class="x" id="dclose">✕</button></h3>`;
+  const show = html => { box.innerHTML = head + html; box.hidden = false; $("dclose").onclick = closeDetail; };
+  if (meta.k === "baseline") {
+    show(`<div class="note">${tab.file ? "This text was already in the file when tracking started (file last saved " + esc(dateFull(meta.t)) + "). Anything changed later is listed under its own time." : "This text was already in the tab when tracking started."}</div>`);
+    return;
+  }
+  show(`<div class="note">Loading history…</div>`);
+  await ensureAll();
+  const evs = L.tabEvents(tab, allEvents), p = evs.findIndex(e => e.e === seg.e);
+  if (sel.ver != null || sel.line == null) return;                    // the user moved on while we were loading
+  if (p < 0) { show(`<div class="note">No log entry found for this change.</div>`); return; }
+  show(`<div class="btns"><button id="dbefore">◀ File before this change</button><button id="dafter">File after this change</button><button id="dhist">All versions</button></div>${eventHtml(evs[p])}`);
+  $("dbefore").onclick = () => { sel.ver = p; sel.line = null; render(); };
+  $("dafter").onclick = () => { sel.ver = p + 1; sel.line = null; render(); };
+  $("dhist").onclick = () => openHistory(tab);
+}
+function closeDetail() { sel.line = null; render(); }
 
+function bindTabs() {
+  document.querySelectorAll(".tab").forEach(el => el.onclick = () => { sel.tab = el.dataset.id; sel.ver = null; sel.line = null; render(); });
+}
+
+// ------------------------------------------------------------------ events
+document.addEventListener("click", e => {
+  const r = e.target.closest(".fr[data-line]");
+  if (!r || mode !== "file" || sel.ver != null || e.target.closest("button")) return;
+  sel.line = +r.dataset.line; render();
+});
+function setRange(from, to, label, p) {
+  range = {from, to, label}; preset = p || (PRESETS.some(x => x[0] === label) ? label : null); refresh(true);
+}
 $("presets").innerHTML = PRESETS.map(([n]) => `<button data-p="${n}">${n}</button>`).join("");
 document.querySelectorAll("#presets button").forEach(b => b.onclick = () => { const [f, t] = PRESETS.find(p => p[0] === b.dataset.p)[1](); setRange(f, t, b.dataset.p, b.dataset.p); });
 $("go").onclick = () => {
@@ -179,24 +402,37 @@ $("go").onclick = () => {
   const [f, t] = [new Date(a + "T00:00:00").getTime(), new Date(b + "T00:00:00").getTime() + DAY];
   setRange(Math.min(f, t - DAY), Math.max(t, f + DAY), "Custom");
 };
+document.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; sel.ver = null; sel.line = null; render(); });
 $("rev").onchange = render;
-$("refresh").onclick = () => { loadScript("index.js?_=" + Date.now()).then(() => loadRange(true)); };
+$("refresh").onclick = () => refresh(true);
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT" || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
-  const ids = [...document.querySelectorAll(".tab")].map(x => x.dataset.id), i = ids.indexOf(selected);
-  const n = ids[i + (e.key === "ArrowRight" ? 1 : -1)]; if (n) { selected = n; render(); }
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    const ids = [...document.querySelectorAll(".tab")].map(x => x.dataset.id), i = ids.indexOf(sel.tab);
+    const n = ids[i + (e.key === "ArrowRight" ? 1 : -1)]; if (n) { sel.tab = n; sel.ver = null; sel.line = null; render(); }
+  } else if (mode === "file" && sel.ver != null && (e.key === "[" || e.key === "]")) {
+    const b = $(e.key === "[" ? "vold" : "vnew"); if (b && !b.disabled) b.click();
+  } else if (e.key === "Escape" && sel.line != null) closeDetail();
 });
 
-// `sublime_log` writes the wanted range into open.js; an already-open viewer notices a newer ts and jumps there by itself
-function applyOpen(first) {
+// `sublime_log` writes the wanted range/mode into open.js; an already-open viewer notices a newer ts and jumps there by itself
+function applyOpen() {
   const o = window.SUBLOG_OPEN; if (!o || o.ts === lastOpenTs) return false;
-  lastOpenTs = o.ts; setRange(o.from, o.to, o.label); return true;
+  lastOpenTs = o.ts;
+  if (o.mode) { mode = o.mode === "changes" ? "changes" : "file"; sel.ver = null; sel.line = null; }
+  setRange(o.from, o.to, o.label); return true;
 }
 (async () => {                                      // fresh files on every page load / refresh
-  await loadScript("index.js?_=" + Date.now()); await loadScript("open.js?_=" + Date.now());
-  if (!applyOpen()) { const [f, t] = PRESETS[0][1](); setRange(f, t, "Today", "Today"); }
+  readHash();
+  await loadScript(bust("open.js"));
+  const o = window.SUBLOG_OPEN;
+  if (o && o.mode && !location.hash.includes("m=")) mode = o.mode === "changes" ? "changes" : "file";
+  if (o) { lastOpenTs = o.ts; range = {from: o.from, to: o.to, label: o.label}; preset = PRESETS.some(x => x[0] === o.label) ? o.label : null; }
+  else { const [f, t] = PRESETS[0][1](); range = {from: f, to: t, label: "Today"}; preset = "Today"; }
+  await refresh(true);
+  window.SUBLOG_READY = true;
+  // the log keeps growing while this tab is open: re-read open.js every 3 s and the log every 5 s (re-render only if something new arrived)
+  setInterval(async () => { await loadScript(bust("open.js")); applyOpen(); }, 3000);
+  setInterval(() => refresh(false, true), 5000);
 })();
-// the log keeps growing while this tab is open: re-read open.js every 3 s and the log files every 5 s (re-render only if something new arrived)
-setInterval(async () => { await loadScript("open.js?_=" + Date.now()); applyOpen(); }, 3000);
-setInterval(async () => { await loadScript("index.js?_=" + Date.now()); loadRange("live"); }, 5000);
 </script></body></html>

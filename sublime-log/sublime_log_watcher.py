@@ -7,13 +7,14 @@ file-backed tabs are read from disk. macOS tells us when that file changes (kque
 
   <log_dir>/days/YYYY-MM-DD.js    one `SUBLOG_EVENT({...});` line per change, UTC day, rolls to .2.js, .3.js past 2 MB
   <log_dir>/index.js              which day files exist (the static viewer needs it, file:// cannot list folders)
-  <log_dir>/state.json            last snapshot of every tab (so a restart loses nothing)
+  <log_dir>/state.json            last snapshot of every tab + which log entry each line comes from (a restart loses nothing)
+  <log_dir>/current.js            every open tab's current text with per-line origin, for the viewer's file ("blame") view
   <log_dir>/watcher-status.json   pid / last check / last event, for `sublime_log status`
 
 Only the session-file layout (windows[].groups[].sheets[] -> windows[].buffers[]) is relied on, so no Sublime
 version is hard-coded and every key is read defensively. Stdlib only.
 """
-import argparse, difflib, glob, json, os, select, signal, sys, time
+import argparse, difflib, glob, json, os, re, select, signal, subprocess, sys, tempfile, time
 from datetime import datetime, timezone
 
 APP_SUPPORT = os.path.expanduser("~/Library/Application Support")
@@ -21,6 +22,9 @@ SESSION_NAME = "Auto Save Session.sublime_session"
 CONFIG = os.path.expanduser("~/.config/sublime-log/config.json")
 DEFAULT_LOG_DIR = os.path.expanduser("~/.local/share/sublime-log")
 
+STATE_VERSION = 2
+CURRENT_TEXT_CAP = 500_000  # tabs longer than this are not embedded in current.js (blame view needs the text)
+CLOSED_KEEP_DAYS = 90       # closed file tabs keep their history this long, so reopening resumes it
 MERGE_SECONDS = 90          # edits to one tab closer together than this are folded into a single log entry
 QUIET_SECONDS = float(os.environ.get("SUBLOG_QUIET", 1))   # typing pause that closes a burst
 MAX_WAIT_SECONDS = float(os.environ.get("SUBLOG_MAX_WAIT", 5))      # never sit on an unlogged change longer than this, even if typing never stops
@@ -28,7 +32,7 @@ SAFETY_CHECK_SECONDS = 60   # stat-only fallback in case a kernel event is ever 
 MAX_TEXT = 2_000_000        # larger tabs are tracked by hash only
 MAX_HUNK_CHARS = 20_000     # per side of a hunk; longer text is cut and flagged
 PART_BYTES = 2_000_000      # day file rolls to the next part past this size
-BIG_DIFF_CELLS = 4_000_000  # lines_old * lines_new beyond this -> one whole-block hunk instead of a full diff
+SMALL_DIFF_CELLS = 250_000  # lines_old * lines_new beyond this -> the system `diff` instead of difflib (which is quadratic)
 
 
 def log(msg):
@@ -113,6 +117,8 @@ def read_tabs(session_path):
                 text = contents if dirty else (read_text(file) if file else "")
                 if text is not None:
                     text = text.replace("\r\n", "\n").replace("\r", "\n")
+                    if len(text) > MAX_TEXT:
+                        text = None
                 tabs.append({"file": file, "title": tab_title(buf, text, file), "text": text, "dirty": dirty,
                              "pos": len(tabs)})
     return tabs
@@ -125,8 +131,8 @@ def _clip(lines):
     return (s[:MAX_HUNK_CHARS], True) if len(s) > MAX_HUNK_CHARS else (s, False)
 
 
-def diff_hunks(old, new):
-    """Line-level hunks [{o,n,-,+}] (1-based start lines in old/new) plus total inserted/deleted line counts."""
+def diff_ops(old, new):
+    """Line-level edit ops [(i1, i2, j1, j2)]: old lines i1:i2 became new lines j1:j2 (0-based, ascending). Also returns both line lists."""
     a, b = old.split("\n"), new.split("\n")
     pre = 0
     while pre < len(a) and pre < len(b) and a[pre] == b[pre]:
@@ -136,22 +142,97 @@ def diff_hunks(old, new):
         suf += 1
     am, bm = a[pre:len(a) - suf], b[pre:len(b) - suf]
     if not am and not bm:
-        return [], 0, 0
-    if len(am) * len(bm) > BIG_DIFF_CELLS:
-        ops = [("replace", 0, len(am), 0, len(bm))]
-    else:
-        ops = [o for o in difflib.SequenceMatcher(None, am, bm, autojunk=False).get_opcodes() if o[0] != "equal"]
+        return [], a, b
+    if len(am) * len(bm) > SMALL_DIFF_CELLS:
+        ops = _external_diff(am, bm)
+        if ops is None:                     # no `diff` available / it timed out: say "this whole block changed"
+            ops = [(0, len(am), 0, len(bm))]
+        return [(pre + i1, pre + i2, pre + j1, pre + j2) for i1, i2, j1, j2 in ops], a, b
+    ops = [(pre + i1, pre + i2, pre + j1, pre + j2)
+           for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, am, bm, autojunk=False).get_opcodes() if tag != "equal"]
+    return ops, a, b
+
+
+_DIFF_LINE = re.compile(r"^(\d+)(?:,(\d+))?([acd])(\d+)(?:,(\d+))?$")
+
+
+def _external_diff(am, bm):
+    """Big edits: difflib is quadratic, the system `diff` (Myers, C) is not. Returns ops over am/bm or None."""
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            fa, fb = os.path.join(d, "a"), os.path.join(d, "b")
+            for p, lines in ((fa, am), (fb, bm)):
+                with open(p, "w", encoding="utf-8", newline="") as f:
+                    f.write("\n".join(lines) + "\n")
+            r = subprocess.run(["diff", fa, fb], capture_output=True, text=True, timeout=20)
+        if r.returncode not in (0, 1):
+            return None
+        ops = []
+        for line in r.stdout.splitlines():
+            m = _DIFF_LINE.match(line)
+            if not m:
+                continue
+            a1, a2, kind, b1, b2 = int(m.group(1)), m.group(2), m.group(3), int(m.group(4)), m.group(5)
+            a2 = int(a2) if a2 else a1
+            b2 = int(b2) if b2 else b1
+            if kind == "a":
+                ops.append((a1, a1, b1 - 1, b2))
+            elif kind == "d":
+                ops.append((a1 - 1, a2, b1, b1))
+            else:
+                ops.append((a1 - 1, a2, b1 - 1, b2))
+        return ops
+    except Exception:
+        return None
+
+
+def ops_to_hunks(ops, a, b):
+    """-> hunks [{o,n,-,+}] (1-based start lines in old/new; `cut` if a side was too long to keep), inserted and deleted line counts."""
     hunks, ins, dele = [], 0, 0
-    for _, i1, i2, j1, j2 in ops:
-        d, t1 = _clip(am[i1:i2])
-        p, t2 = _clip(bm[j1:j2])
-        h = {"o": pre + i1 + 1, "n": pre + j1 + 1, "-": d.split("\n") if i2 > i1 else [], "+": p.split("\n") if j2 > j1 else []}
+    for i1, i2, j1, j2 in ops:
+        d, t1 = _clip(a[i1:i2])
+        p, t2 = _clip(b[j1:j2])
+        h = {"o": i1 + 1, "n": j1 + 1, "-": d.split("\n") if i2 > i1 else [], "+": p.split("\n") if j2 > j1 else []}
         if t1 or t2:
             h["cut"] = True
         hunks.append(h)
         dele += i2 - i1
         ins += j2 - j1
     return hunks, ins, dele
+
+
+def diff_hunks(old, new):
+    ops, a, b = diff_ops(old, new)
+    return ops_to_hunks(ops, a, b)
+
+
+def apply_ops(lines, ops, e, n_new):
+    """Carry per-line origin ids across a diff: untouched lines keep theirs, inserted/replaced lines get `e`. None if the shape is off."""
+    out, pos = [], 0
+    for i1, i2, j1, j2 in ops:
+        out.extend(lines[pos:i1])
+        out.extend([e] * (j2 - j1))
+        pos = i2
+    out.extend(lines[pos:])
+    return out if len(out) == n_new else None
+
+
+def to_runs(lines):
+    runs = []
+    for e in lines:
+        if runs and runs[-1][1] == e:
+            runs[-1][0] += 1
+        else:
+            runs.append([1, e])
+    return runs
+
+
+def from_runs(runs):
+    return [e for n, e in runs for _ in range(n)]
+
+
+def nlines(text):
+    return text.count("\n") + 1
 
 
 def similarity(a, b):
@@ -220,16 +301,24 @@ class Log:
 # ---------------------------------------------------------------- the watcher
 
 class Watcher:
+    """Tracks every tab: appends diffs to the day log, and keeps per-line origin ("blame") so the viewer can show the
+    current file with who-changed-what-when. Tab record (state.json, `lines` stored as runs):
+      title, file, dirty, pos, text, lines[e per line], ev{str(e): {t,k[,src]}}, born, ids[all ids this tab had], closed
+    e = id of the log entry (or baseline marker) a line comes from; ev[e].t is when that entry last changed."""
+
     def __init__(self, session, log_root):
         self.session_file = session
         self.live_file = os.path.join(log_root, "live-session.json")     # written by the Sublime plugin on every edit
         self.log = Log(log_root)
         self.state_path = os.path.join(log_root, "state.json")
+        self.current_path = os.path.join(log_root, "current.js")
         self.status_path = os.path.join(log_root, "watcher-status.json")
-        self.tabs = {}          # id -> {title,file,text,hash,dirty}
+        self.tabs = {}
         self.next_untitled = 1
+        self.next_e = 1
         self.last_event = None
-        self.bursts = {}        # tab id -> the entry still open for merging: {base, t, path, offset, end}
+        self.bursts = {}        # tab id -> the entry still open for merging: {e, base, base_lines, t, path, offset, end}
+        self._last_current = None
         self._load_state()
         try:
             with open(self.status_path, encoding="utf-8") as f:
@@ -247,51 +336,93 @@ class Watcher:
                 return -1
         return self.live_file if mt(self.live_file) > mt(self.session_file) else self.session_file
 
+    # ------------------------------------------------------------ state
     def _load_state(self):
         try:
             with open(self.state_path, encoding="utf-8") as f:
                 s = json.load(f)
-            self.tabs, self.next_untitled = s.get("tabs", {}), s.get("next_untitled", 1)
         except Exception:
-            self.tabs, self.next_untitled = {}, 1
+            s = None
+        if s is not None and s.get("version") != STATE_VERSION:
+            self._archive_old_log()
+            s = None
+        if s:
+            self.next_untitled, self.next_e = s.get("next_untitled", 1), s.get("next_e", 1)
+            for tid, rec in s.get("tabs", {}).items():
+                rec["lines"] = from_runs(rec["lines"]) if rec.get("lines") is not None else None
+                self.tabs[tid] = rec
+
+    def _archive_old_log(self):
+        """Log written by an older version has no line-origin info: keep it aside, start a fresh one."""
+        dest = os.path.join(self.log.root, "archive-" + time.strftime("%Y%m%d-%H%M%S"))
+        os.makedirs(dest, exist_ok=True)
+        for name in ("state.json", "days", "index.js", "current.js"):
+            src = os.path.join(self.log.root, name)
+            if os.path.exists(src):
+                os.rename(src, os.path.join(dest, name))
+        os.makedirs(self.log.days, exist_ok=True)
+        log(f"old-format log moved to {dest}")
 
     def _save_state(self):
-        atomic_write(self.state_path, json.dumps({"tabs": self.tabs, "next_untitled": self.next_untitled}, ensure_ascii=False))
+        tabs = {}
+        for tid, rec in self.tabs.items():
+            r = dict(rec)
+            r["lines"] = to_runs(rec["lines"]) if rec.get("lines") is not None else None
+            tabs[tid] = r
+        atomic_write(self.state_path, json.dumps({"version": STATE_VERSION, "tabs": tabs, "next_untitled": self.next_untitled,
+                                                  "next_e": self.next_e}, ensure_ascii=False))
 
     def write_status(self, **extra):
         st = {"pid": os.getpid(), "session": self.session, "checked": int(time.time() * 1000),
-              "last_event": self.last_event, "tabs": len(self.tabs)}
+              "last_event": self.last_event, "tabs": sum(1 for t in self.tabs.values() if not t.get("closed"))}
         st.update(extra)
         atomic_write(self.status_path, json.dumps(st))
 
-    def _emit(self, t, tid, tab, kind, hunks=None, ins=0, dele=0, **extra):
+    def write_current(self):
+        """current.js: every open tab's current text + which log entry each line comes from (for the viewer's file view)."""
+        out = []
+        for tid, tab in sorted(((k, v) for k, v in self.tabs.items() if not v.get("closed")),
+                               key=lambda kv: (kv[1].get("born", 0), kv[1].get("pos", 0))):
+            text, lines = tab.get("text"), tab.get("lines")
+            entry = {"id": tid, "ids": tab.get("ids", [tid]), "title": tab["title"], "file": tab.get("file"),
+                     "dirty": bool(tab.get("dirty")), "born": tab.get("born", 0)}
+            if text is None or lines is None or len(text) > CURRENT_TEXT_CAP:
+                entry.update({"text": None, "segs": [], "ev": {}})
+            else:
+                segs, start = [], 1
+                for n, e in to_runs(lines):
+                    segs.append([start, n, e])
+                    start += n
+                entry.update({"text": text, "segs": segs, "ev": {str(e): tab["ev"].get(str(e), {"t": 0, "k": "baseline"}) for _, _, e in segs}})
+            out.append(entry)
+        payload = "window.SUBLOG_CURRENT=" + json.dumps({"updated": int(time.time() * 1000), "tabs": out}, ensure_ascii=False) + ";\n"
+        body = payload.split(",", 1)[1]                       # ignore the `updated` stamp when deciding whether anything changed
+        if body != self._last_current:
+            atomic_write(self.current_path, payload)
+            self._last_current = body
+
+    # ------------------------------------------------------------ events
+    def _new_e(self):
+        e = self.next_e
+        self.next_e += 1
+        return e
+
+    def _event(self, t, tid, tab, kind, **extra):
         ev = {"t": t, "id": tid, "title": tab["title"], "file": tab.get("file"), "k": kind}
-        if hunks:
-            ev.update({"ins": ins, "del": dele, "h": hunks})
         ev.update(extra)
-        b = self.bursts.get(tid)
-        if kind == "edit" and hunks and b and not extra and t - b["t"] <= MERGE_SECONDS * 1000 \
-                and os.path.exists(b["path"]) and os.path.getsize(b["path"]) == b["end"]:
-            h2, i2, d2 = diff_hunks(b["base"], tab["text"])      # one entry for the whole burst: diff from where it began
-            if h2:
-                ev.update({"ins": i2, "del": d2, "h": h2})
-                b["path"], b["offset"], b["end"] = self.log.rewrite_last(b["path"], b["offset"], ev)
-            else:                                                  # typed and deleted again: nothing changed overall
-                self.log.rewrite_last(b["path"], b["offset"], None)
-                del self.bursts[tid]
-            b["t"] = t
-            self.last_event = t
-            return
-        path, offset, end = self.log.append(ev)
-        if kind == "edit" and hunks and not extra:
-            self.bursts[tid] = {"base": self._base, "t": t, "path": path, "offset": offset, "end": end}
-        else:
-            self.bursts.pop(tid, None)
-        self.last_event = t
+        return ev
+
+    def _log_event(self, ev):
+        self.log.append(ev)
+        self.last_event = ev["t"]
+
+    def _tab(self, tid, x, text, lines, ev, born):
+        return {"title": x["title"], "file": x["file"], "dirty": x["dirty"], "pos": x["pos"], "text": text, "lines": lines,
+                "ev": ev, "born": born, "ids": [tid], "closed": False}
 
     def _match_untitled(self, new_untitled):
         """Pair untitled tabs in the new snapshot with tracked ones. Untitled tabs have no id in the session file."""
-        old = {tid: tab for tid, tab in self.tabs.items() if tid.startswith("u")}
+        old = {tid: tab for tid, tab in self.tabs.items() if tid.startswith("u") and not tab.get("closed")}
         pairs, left_new, left_old = {}, list(range(len(new_untitled))), set(old)
         scored = sorted(((similarity(old[tid]["text"] or "", new_untitled[i]["text"] or ""), tid, i)
                          for tid in old for i in range(len(new_untitled))), reverse=True)
@@ -309,11 +440,104 @@ class Watcher:
                     break
         return pairs
 
+    # ------------------------------------------------------------ one tab
+    def _edit(self, t, tid, x, tab, text, src, log_it, kind="edit"):
+        """tab text -> `text`: log it (merging into the open burst when typing continues) and carry line origins."""
+        prev_text = tab["text"]
+        ops, a, b = diff_ops(prev_text, text)
+        if not ops:
+            tab["text"] = text
+            return
+        burst = self.bursts.get(tid)
+        merge = bool(log_it and burst and src is None and t - burst["t"] <= MERGE_SECONDS * 1000
+                     and os.path.exists(burst["path"]) and os.path.getsize(burst["path"]) == burst["end"])
+        if merge:
+            e = burst["e"]
+            hunks, ins, dele = diff_hunks(burst["base"], text)          # one entry for the whole burst: diff from where it began
+            if not hunks:                                                # typed and deleted again: nothing changed overall
+                self.log.rewrite_last(burst["path"], burst["offset"], None)
+                tab["lines"], tab["text"] = list(burst["base_lines"]), text
+                del self.bursts[tid]
+                return
+            ev = self._event(t, tid, tab, "edit", e=e, ins=ins, **{"del": dele}, h=hunks)
+            burst["path"], burst["offset"], burst["end"] = self.log.rewrite_last(burst["path"], burst["offset"], ev)
+            burst["t"] = t
+            self.last_event = t
+        else:
+            e = self._new_e()
+            if log_it:
+                hunks, ins, dele = ops_to_hunks(ops, a, b)
+                ev = self._event(t, tid, tab, "edit", e=e, ins=ins, **{"del": dele}, h=hunks, **({"src": src} if src else {}))
+                path, offset, end = self.log.append(ev)
+                self.last_event = t
+                if src is None:
+                    self.bursts[tid] = {"e": e, "base": prev_text, "base_lines": list(tab["lines"] or []), "t": t,
+                                        "path": path, "offset": offset, "end": end}
+                else:
+                    self.bursts.pop(tid, None)
+        lines = apply_ops(tab["lines"], ops, e, len(b)) if tab.get("lines") is not None else None
+        tab["lines"] = lines if lines is not None else [e] * len(b)    # shape mismatch: restart this tab's blame rather than lie
+        tab["ev"][str(e)] = {"t": t, "k": kind, **({"src": src} if src else {})}
+        tab["text"] = text
+
+    def _new_tab(self, t, tid, x, first_run):
+        text = x["text"]
+        if text is None:                                                 # too big to diff: presence only
+            self.tabs[tid] = self._tab(tid, x, None, None, {}, 0 if first_run else t)
+            if not first_run:
+                self._log_event(self._event(t, tid, x, "open", saved=not x["dirty"]))
+            return
+        if x["file"]:
+            disk = read_text(x["file"])
+            base = disk if disk is not None else text
+            try:
+                saved_at = int(os.path.getmtime(x["file"]) * 1000)       # untouched lines count as "last saved then"
+            except OSError:
+                saved_at = t
+            e0 = self._new_e()
+            tab = self._tab(tid, x, base, [e0] * nlines(base), {str(e0): {"t": saved_at, "k": "baseline"}}, 0 if first_run else t)
+            self.tabs[tid] = tab
+            if not first_run:
+                self._log_event(self._event(t, tid, x, "open", saved=not x["dirty"]))
+            if text != base:
+                self._edit(t, tid, x, tab, text, None, not first_run, "unsaved" if first_run else "edit")
+        elif first_run:
+            e0 = self._new_e()
+            self.tabs[tid] = self._tab(tid, x, text, [e0] * nlines(text), {str(e0): {"t": t, "k": "baseline"}}, 0)
+        else:
+            e = self._new_e()
+            ops, a, b = diff_ops("", text)
+            hunks, ins, dele = ops_to_hunks(ops, a, b)
+            tab = self._tab(tid, x, text, [e] * nlines(text), {str(e): {"t": t, "k": "new"}}, t)
+            self.tabs[tid] = tab
+            self._log_event(self._event(t, tid, x, "new", e=e, ins=ins, **{"del": dele}, h=hunks) if hunks else
+                            self._event(t, tid, x, "new", e=e))
+
+    def _update_tab(self, t, tid, x, tab):
+        text = x["text"]
+        if tab.get("closed"):                                            # reopened: carry on where we left off
+            tab["closed"] = False
+            tab.pop("closed_t", None)
+            self._log_event(self._event(t, tid, x, "open", saved=not x["dirty"]))
+        if text is None:
+            if not x["file"] or x["dirty"]:                              # an unsaved tab grew past the size limit: stop pretending
+                tab["text"], tab["lines"] = None, None
+            # clean file we cannot read right now (permissions / too big): keep the old baseline
+        elif tab.get("text") is None:
+            e0 = self._new_e()                                           # became readable again: re-baseline
+            tab["text"], tab["lines"] = text, [e0] * nlines(text)
+            tab["ev"][str(e0)] = {"t": t, "k": "baseline"}
+        elif text != tab["text"]:
+            self._edit(t, tid, x, tab, text, None if (x["dirty"] or not x["file"]) else "disk", True)
+        elif tab.get("dirty") and not x["dirty"] and x["file"]:
+            self._log_event(self._event(t, tid, x, "save"))
+        tab.update({"title": x["title"], "file": x["file"], "dirty": x["dirty"], "pos": x["pos"]})
+
     def process(self, t):
         tabs = read_tabs(self.session)
         if tabs is None:                        # no windows: Sublime is quitting / not running; keep state as is
             return
-        first_run = not self.tabs and not os.path.exists(self.state_path)
+        first_run = not os.path.exists(self.state_path)
         untitled = [x for x in tabs if not x["file"]]
         pairs = self._match_untitled(untitled)
         current = {}
@@ -328,37 +552,37 @@ class Watcher:
             if x["file"]:
                 current["f:" + x["file"]] = x
 
+        # an untitled tab that became a file in the same snapshot is "Save As", not close + open: keep its history
+        fresh_files = [tid for tid in current if tid.startswith("f:") and (tid not in self.tabs or self.tabs[tid].get("closed"))]
+        for old in [tid for tid in self.tabs if tid.startswith("u") and tid not in current and not self.tabs[tid].get("closed")]:
+            for nid in fresh_files:
+                if similarity(self.tabs[old]["text"] or "", current[nid]["text"] or "") >= 0.9:
+                    tab = self.tabs.pop(old)
+                    self.bursts.pop(old, None)
+                    tab["ids"] = tab.get("ids", [old]) + [nid]
+                    tab.update({"file": current[nid]["file"], "title": current[nid]["title"], "dirty": current[nid]["dirty"], "closed": False})
+                    self.tabs[nid] = tab
+                    self._log_event(self._event(t, nid, tab, "save", **{"as": current[nid]["file"], "from": old}))
+                    fresh_files.remove(nid)
+                    break
+
         for tid, x in current.items():
-            prev = self.tabs.get(tid)
-            text = x["text"]
-            if prev is None:
-                if not first_run:
-                    self._emit(t, tid, x, "new" if not x["file"] else "open",
-                               *(diff_hunks("", text) if (text and (not x["file"] or x["dirty"])) else ([], 0, 0)),
-                               **({"saved": not x["dirty"]} if x["file"] else {}))
-            elif text is None or prev.get("text") is None:
-                if text is None and prev.get("text") is not None and x["file"]:
-                    pass                        # unreadable right now (permissions / too big): keep the old baseline
-                elif text is not None and prev.get("text") is None:
-                    pass                        # became readable again: just re-baseline below
-                else:
-                    self._emit(t, tid, x, "edit", note="large file, diff skipped")
-            elif text != prev["text"]:
-                hunks, ins, dele = diff_hunks(prev["text"], text)
-                self._base = prev["text"]
-                if hunks:
-                    self._emit(t, tid, x, "edit", hunks, ins, dele,
-                               **({} if x["dirty"] or not x["file"] else {"src": "disk"}))
-            elif prev.get("dirty") and not x["dirty"] and x["file"]:
-                self._emit(t, tid, x, "save")
-            self.tabs[tid] = {"title": x["title"], "file": x["file"], "dirty": x["dirty"], "pos": x["pos"],
-                              "text": text if text is not None and len(text) <= MAX_TEXT else
-                              (prev or {}).get("text")}
-        for tid in [k for k in self.tabs if k not in current]:
-            if not first_run:
-                self._emit(t, tid, self.tabs[tid], "close")
+            tab = self.tabs.get(tid)
+            if tab is None:
+                self._new_tab(t, tid, x, first_run)
+            else:
+                self._update_tab(t, tid, x, tab)
+        for tid in [k for k, v in self.tabs.items() if k not in current and not v.get("closed")]:
+            self._log_event(self._event(t, tid, self.tabs[tid], "close"))
+            self.bursts.pop(tid, None)
+            if tid.startswith("u"):
+                del self.tabs[tid]
+            else:
+                self.tabs[tid].update({"closed": True, "closed_t": t})
+        for tid in [k for k, v in self.tabs.items() if v.get("closed") and t - v.get("closed_t", t) > CLOSED_KEEP_DAYS * 86400000]:
             del self.tabs[tid]
         self._save_state()
+        self.write_current()
 
     def run(self):
         directory = os.path.dirname(self.session_file)

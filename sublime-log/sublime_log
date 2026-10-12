@@ -8,8 +8,14 @@
   sublime_log 10m | 2h | 3d | week | month | all
   sublime_log status             is the background watcher alive, when did it last log
 
+The viewer opens on the File view: every open tab's current text, each block labelled with when it was added (click a line for
+that change and earlier versions). The Changes view (what was added/removed, per time range) is one click away, or start there:
+  sublime_log --changes [range]
+
 Flags: --no-open  print the viewer path, do not open a browser (use from scripts / AI)
+       --changes  open on the Changes view instead of the File view
        --text     print the changes in the terminal instead of opening the viewer
+       --blame    print every open tab's current text with when each line was added (terminal)
        --log-dir  log location (default: ~/.config/sublime-log/config.json, then ~/.local/share/sublime-log)
 Install / remove the background watcher with install.sh / uninstall.sh next to this file.
 """
@@ -19,7 +25,7 @@ from datetime import datetime, timedelta
 CONFIG = os.path.expanduser("~/.config/sublime-log/config.json")
 DEFAULT_LOG_DIR = os.path.expanduser("~/.local/share/sublime-log")
 HERE = os.path.dirname(os.path.realpath(__file__))
-VIEWER = os.path.join(HERE, "viewer.html")
+VIEWER_FILES = ("viewer.html", "viewer_lib.js")
 
 
 def log_dir(arg):
@@ -121,6 +127,27 @@ def print_text(root, t0, t1, label):
                     print(f"    + {l}")
 
 
+def print_blame(root):
+    try:
+        with open(os.path.join(root, "current.js"), encoding="utf-8") as f:
+            cur = json.loads(f.read().split("=", 1)[1].rstrip().rstrip(";"))
+    except Exception:
+        sys.exit(f"no current.js in {root} — is the watcher running? (sublime_log status)")
+    stamp = lambda ms: datetime.fromtimestamp(ms / 1000).strftime("%Y-%m-%d %H:%M")
+    for tab in cur["tabs"]:
+        print(f"\n== {tab['title']}   [{tab['file'] or 'untitled'}]" + ("   (unsaved changes)" if tab.get("dirty") else ""))
+        if tab["text"] is None:
+            print("   (too large to show)")
+            continue
+        lines = tab["text"].split("\n")
+        for start, n, e in tab["segs"]:
+            meta = tab["ev"].get(str(e), {"t": 0, "k": "baseline"})
+            label = ("saved " + stamp(meta["t"]) if tab["file"] else "before tracking") if meta["k"] == "baseline" else \
+                f"{ {'new': 'new tab', 'edit': 'edited', 'unsaved': 'unsaved at start'}.get(meta['k'], meta['k']) } {stamp(meta['t'])}"
+            for i in range(start - 1, start - 1 + n):
+                print(f"{label if i == start - 1 else '':<30} {i + 1:>5}  {lines[i]}")
+
+
 def status(root):
     try:
         with open(os.path.join(root, "watcher-status.json"), encoding="utf-8") as f:
@@ -148,24 +175,31 @@ def main():
     ap.add_argument("range", nargs="*", help="y | YYYY-MM-DD [YYYY-MM-DD] | 10m | 2h | 3d | week | month | all | status")
     ap.add_argument("--no-open", action="store_true")
     ap.add_argument("--text", action="store_true")
+    ap.add_argument("--changes", action="store_true")
+    ap.add_argument("--blame", action="store_true")
     ap.add_argument("--log-dir")
     a = ap.parse_args()
     root = log_dir(a.log_dir)
     if a.range == ["status"]:
         sys.exit(status(root))
+    if a.blame:
+        print_blame(root)
+        return
     t0, t1, label = parse_range(a.range)
     if a.text:
         print_text(root, t0, t1, label)
         return
     os.makedirs(root, exist_ok=True)
-    link = os.path.join(root, "viewer.html")           # a COPY in the log dir: macOS `open` resolves symlinks, which would break the relative script paths
-    if os.path.islink(link):
-        os.remove(link)
-    shutil.copyfile(VIEWER, link)
+    link = os.path.join(root, "viewer.html")           # COPIES in the log dir: macOS `open` resolves symlinks, which would break the relative script paths
+    for name in VIEWER_FILES:
+        dest = os.path.join(root, name)
+        if os.path.islink(dest):
+            os.remove(dest)
+        shutil.copyfile(os.path.join(HERE, name), dest)
     # `open` drops ?query / #fragment on file:// links, so the range goes through a data file the viewer loads first;
     # ts changes every run so an already-open viewer tab notices and jumps to the new range by itself.
     with open(os.path.join(root, "open.js"), "w", encoding="utf-8") as f:
-        f.write("window.SUBLOG_OPEN=" + json.dumps({"from": t0, "to": t1, "label": label, "ts": int(time.time() * 1000)}) + ";\n")
+        f.write("window.SUBLOG_OPEN=" + json.dumps({"from": t0, "to": t1, "label": label, "mode": "changes" if a.changes else "file", "ts": int(time.time() * 1000)}) + ";\n")
     print(link)
     if not a.no_open:
         subprocess.run(["open", link])
