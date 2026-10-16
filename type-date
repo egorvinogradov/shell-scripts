@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""type-date: Types the current date (YYYY-MM-DD) into the active field without using the clipboard."""
+"""type-date: Types the current date (YYYY-MM-DD) into the active field without using the clipboard.
+
+HOW THE KEYBOARD SHORTCUT IS SET (macOS Shortcuts app, nothing in this repo binds the key):
+  1. Copy this file to ~/.local/bin/type-date
+  2. Shortcuts app > new shortcut > action "Run Shell Script" > script: python3 ~/.local/bin/type-date
+     (shell zsh; leave input options alone; untick "Use as Quick Action" / "Receive What's On Screen")
+  3. Shortcut details (the i button, top right) > Add Keyboard Shortcut > press Shift+Ctrl+Option+Cmd+D
+  Needs Accessibility permission for the Shortcuts app (System Settings > Privacy & Security).
+"""
 import subprocess, sys
 from datetime import datetime
 

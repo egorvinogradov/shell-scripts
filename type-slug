@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""type-slug: turns the selected text into ➡️ snake_case_slug and types it over the selection.
+Reads the selection through accessibility; falls back to Cmd+C (clipboard is emptied first, restored after).
+HOW THE KEYBOARD SHORTCUT IS SET (macOS Shortcuts app, nothing in this repo binds the key):
+  1. Copy this file to ~/.local/bin/type-slug
+  2. Shortcuts app > new shortcut > action "Run Shell Script" > script: python3 ~/.local/bin/type-slug
+     (shell zsh; leave input options alone; untick "Use as Quick Action" / "Receive What's On Screen")
+  3. Shortcut details (the i button, top right) > Add Keyboard Shortcut > press Shift+Ctrl+Option+Cmd+L
+  Needs Accessibility permission for the Shortcuts app (System Settings > Privacy & Security).
+
+Test without touching any app:  type-slug --text "Driver payouts, Google  Docs!"
+"""
+import re, subprocess, sys, time
+
+ARROW = "➡️"  # ➡️
+
+def slugify(text):
+    text = re.sub(r"['\u2019]", "", text.lower())   # it's -> its
+    text = re.sub(r"[^\w\s]|_", " ", text)   # punctuation (and old underscores) -> space
+    words = text.split()                       # collapses any run of spaces/tabs/newlines
+    return f"{ARROW} " + "_".join(words) if words else ""
+
+def osa(script, *args):
+    r = subprocess.run(["osascript", "-e", script, *args], capture_output=True, text=True, timeout=5)
+    return r.returncode, r.stdout.rstrip("\n"), r.stderr.strip()
+
+def read_selection():
+    code, out, _ = osa('''tell application "System Events"
+  set el to value of attribute "AXFocusedUIElement" of (first application process whose frontmost is true)
+  set s to value of attribute "AXSelectedText" of el
+  if s is missing value then return ""
+  return s
+end tell''')
+    if code == 0 and out:
+        return out
+    old = subprocess.run(["pbpaste"], capture_output=True).stdout
+    subprocess.run(["pbcopy"], input=b"")
+    time.sleep(0.2)  # let the shortcut's modifier keys come up
+    osa('tell application "System Events" to keystroke "c" using command down')
+    time.sleep(0.15)
+    got = subprocess.run(["pbpaste"], capture_output=True).stdout
+    subprocess.run(["pbcopy"], input=old)
+    return got.decode(errors="replace")
+
+def type_unicode(text):
+    """Types text as real unicode key events (CoreGraphics), so the emoji arrives intact in any app."""
+    import ctypes, ctypes.util
+    cg = ctypes.CDLL(ctypes.util.find_library("ApplicationServices"))
+    cg.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
+    cg.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
+    cg.CGEventKeyboardSetUnicodeString.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_uint16)]
+    cg.CGEventSetFlags.argtypes = [ctypes.c_void_p, ctypes.c_uint64]
+    cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+    units = list(text.encode("utf-16-le"))
+    units = [units[i] | (units[i + 1] << 8) for i in range(0, len(units), 2)]
+    for i in range(0, len(units), 16):
+        chunk = units[i:i + 16]
+        buf = (ctypes.c_uint16 * len(chunk))(*chunk)
+        for down in (True, False):
+            ev = cg.CGEventCreateKeyboardEvent(None, 0, down)
+            cg.CGEventSetFlags(ev, 0)  # shortcut's Ctrl/Opt/Cmd/Shift may still be held
+            cg.CGEventKeyboardSetUnicodeString(ev, len(chunk), buf)
+            cg.CGEventPost(0, ev)      # 0 = HID event tap
+        time.sleep(0.01)
+
+def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--text":
+        print(slugify(sys.argv[2])); return
+    slug = slugify(read_selection())
+    if not slug:
+        print("Nothing selected", file=sys.stderr); sys.exit(1)
+    try:
+        type_unicode(slug)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr); sys.exit(1)
+    print(f"OK {slug}")
+
+if __name__ == "__main__":
+    main()
