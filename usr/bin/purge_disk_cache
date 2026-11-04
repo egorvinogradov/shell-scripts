@@ -13,6 +13,13 @@
 #   L0 = dead leftovers (finished updates, old build caches)      -> no effect
 #   L1 = regenerable cache (HTTP/media/package caches)            -> short refill on next use
 #   L2+ (state, models, backups, user data) is intentionally NOT here.
+#
+# Python exclusions (2026-11-04: installed Python packages were lost):
+#   ~/Library/Caches/pypoetry is Poetry's cache-dir AND its virtualenvs home; purging it wiped
+#   every Poetry venv. Now only pypoetry/cache and pypoetry/artifacts (download caches) are purged.
+#   Never deleted, anywhere: .venv / venv dirs, site-packages, ~/Library/Python, pipx installs
+#   (~/.local/pipx, ~/Library/Application Support/pipx), uv tool installs (~/.local/share/uv),
+#   *.pth files. pip download cache (~/Library/Caches/pip) is still purged; installed packages are not.
 
 set -u
 shopt -s nullglob dotglob
@@ -33,11 +40,38 @@ kb()   { du -sk "$@" 2>/dev/null | awk '{s+=$1} END {print s+0}'; }
 fmt()  { awk -v k="$1" 'BEGIN{ if(k>=1048576) printf "%.1fG", k/1048576; else if(k>=1024) printf "%.0fM", k/1024; else printf "%dK", k }'; }
 log()  { printf '  %7s  %s  %s\n' "$(fmt "$1")" "$2" "$3"; }
 
+# Python guard: true if the path is, lives inside, or contains installed Python packages.
+# Such paths are never deleted (see header). Applied to every item before rm.
+python_protected() {  # path
+  local p="$1"
+  case "$p" in
+    *.pth) return 0 ;;
+    */.venv|*/.venv/*|*/venv|*/venv/*|*/site-packages|*/site-packages/*) return 0 ;;
+    "$H/Library/Python"|"$H/Library/Python/"*) return 0 ;;
+    "$H/.local/pipx"|"$H/.local/pipx/"*|"$H/Library/Application Support/pipx"|"$H/Library/Application Support/pipx/"*) return 0 ;;
+    "$H/.local/share/uv"|"$H/.local/share/uv/"*) return 0 ;;
+    "$H/Library/Caches/pypoetry/virtualenvs"|"$H/Library/Caches/pypoetry/virtualenvs/"*) return 0 ;;
+  esac
+  [ -d "$p" ] || return 1
+  # a directory that contains a venv, site-packages or .pth anywhere below it
+  [ -n "$(find "$p" \( -name .venv -o -name venv -o -name site-packages -o -name pyvenv.cfg -o -name '*.pth' \) -print -quit 2>/dev/null)" ]
+}
+# Drop protected items from a list; prints the survivors one per line.
+drop_protected() {  # path...
+  local p
+  for p in "$@"; do
+    if python_protected "$p"; then printf '  %7s  %s  %s\n' "skip" "python (protected)" "$p" >&2; else printf '%s\n' "$p"; fi
+  done
+}
+
 # Delete the contents of a directory, keep the directory itself.
 purge_contents() {  # label dir
   local label="$1" d="$2"
   [ -d "$d" ] || return 0
   local items=("$d"/*)
+  [ ${#items[@]} -gt 0 ] || return 0
+  local safe=(); while IFS= read -r p; do safe+=("$p"); done < <(drop_protected "${items[@]}")
+  items=("${safe[@]}")
   [ ${#items[@]} -gt 0 ] || return 0
   local k; k=$(kb "${items[@]}")
   [ "$k" -gt 0 ] || return 0
@@ -51,6 +85,9 @@ purge_paths() {  # label path...
   local label="$1"; shift
   local existing=()
   for p in "$@"; do [ -e "$p" ] && existing+=("$p"); done
+  [ ${#existing[@]} -gt 0 ] || return 0
+  local safe=(); while IFS= read -r p; do safe+=("$p"); done < <(drop_protected "${existing[@]}")
+  existing=("${safe[@]}")
   [ ${#existing[@]} -gt 0 ] || return 0
   local k; k=$(kb "${existing[@]}")
   [ "$k" -gt 0 ] || return 0
@@ -152,7 +189,9 @@ purge_contents "Steam web cache" "$H/Library/Caches/Steam"
 echo "== L1: package-manager caches =="
 purge_contents "pip"        "$H/Library/Caches/pip"
 purge_contents "pnpm"       "$H/Library/Caches/pnpm"
-purge_contents "poetry"     "$H/Library/Caches/pypoetry"
+# Poetry: only its download/metadata caches. pypoetry/virtualenvs holds installed venvs — never touch.
+purge_contents "poetry cache"     "$H/Library/Caches/pypoetry/cache"
+purge_contents "poetry artifacts" "$H/Library/Caches/pypoetry/artifacts"
 purge_contents "node-gyp"   "$H/Library/Caches/node-gyp"
 purge_contents "electron"   "$H/Library/Caches/electron"
 purge_contents "typescript" "$H/Library/Caches/typescript"
