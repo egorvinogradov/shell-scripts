@@ -7,6 +7,8 @@ HOW THE KEYBOARD SHORTCUT IS SET (macOS Shortcuts app, nothing in this repo bind
      (shell zsh; leave input options alone; untick "Use as Quick Action" / "Receive What's On Screen")
   3. Shortcut details (the i button, top right) > Add Keyboard Shortcut > press Shift+Ctrl+Option+Cmd+K
   Needs Accessibility permission for the Shortcuts app (System Settings > Privacy & Security).
+  Shortcuts-app keys do nothing in apps with no Services menu (DeepSeek Harness). type-hotkeys.swift
+  in this repo binds the same keys globally and runs this script directly; see its header.
 
 Test without touching any app:  type-hyphen --text "Driver payouts, Google  Docs!"
 """
@@ -19,26 +21,88 @@ def slugify(text):
     words = text.split()                       # collapses any run of spaces/tabs/newlines
     return "-".join(words)
 
+def log(msg):
+    """Debug trail of every run: ~/Library/Logs/type-hyphen.log"""
+    try:
+        import os
+        with open(os.path.expanduser("~/Library/Logs/type-hyphen.log"), "a") as fh:
+            fh.write(time.strftime("%Y-%m-%d %H:%M:%S ") + msg + "\n")
+    except Exception:
+        pass
+
 def osa(script, *args):
     r = subprocess.run(["osascript", "-e", script, *args], capture_output=True, text=True, timeout=5)
     return r.returncode, r.stdout.rstrip("\n"), r.stderr.strip()
 
-def read_selection():
-    code, out, _ = osa('''tell application "System Events"
+AX_SELECTION = '''tell application "System Events"
   set el to value of attribute "AXFocusedUIElement" of (first application process whose frontmost is true)
   set s to value of attribute "AXSelectedText" of el
   if s is missing value then return ""
   return s
-end tell''')
+end tell'''
+
+def wake_accessibility():
+    """Electron/Chrome apps (DeepSeek Harness, Claude, ...) hide their text from accessibility until asked.
+    Sets AXManualAccessibility on the front app. True = the app accepted it, so a retry is worth it."""
+    try:
+        import ctypes, ctypes.util
+        code, pid, _ = osa('tell application "System Events" to get unix id of (first application process whose frontmost is true)')
+        if code != 0 or not pid.isdigit():
+            return False
+        ax = ctypes.CDLL(ctypes.util.find_library("ApplicationServices"))
+        cf = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
+        V = ctypes.c_void_p
+        ax.AXUIElementCreateApplication.restype = V
+        ax.AXUIElementCreateApplication.argtypes = [ctypes.c_int]
+        ax.AXUIElementSetAttributeValue.argtypes = [V, V, V]
+        cf.CFStringCreateWithCString.restype = V
+        cf.CFStringCreateWithCString.argtypes = [V, ctypes.c_char_p, ctypes.c_uint32]
+        name = cf.CFStringCreateWithCString(None, b"AXManualAccessibility", 0x08000100)
+        app = ax.AXUIElementCreateApplication(int(pid))
+        return ax.AXUIElementSetAttributeValue(app, name, V.in_dll(cf, "kCFBooleanTrue")) == 0
+    except Exception:
+        return False
+
+def press_cmd_c():
+    """Cmd+C as a raw key event with only Cmd set, so the shortcut's still-held Shift/Ctrl/Option cannot leak in."""
+    import ctypes, ctypes.util
+    cg = ctypes.CDLL(ctypes.util.find_library("ApplicationServices"))
+    cg.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
+    cg.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
+    cg.CGEventSetFlags.argtypes = [ctypes.c_void_p, ctypes.c_uint64]
+    cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+    for down in (True, False):
+        ev = cg.CGEventCreateKeyboardEvent(None, 8, down)  # 8 = the C key
+        cg.CGEventSetFlags(ev, 0x100000)                    # Cmd only
+        cg.CGEventPost(0, ev)
+
+def read_selection():
+    _, front, _ = osa('tell application "System Events" to get name of first application process whose frontmost is true')
+    code, out, err = osa(AX_SELECTION)
+    log(f"front={front!r} ax code={code} len={len(out)} err={err[:120]!r}")
     if code == 0 and out:
         return out
+    woke = wake_accessibility()
+    log(f"wake={woke}")
+    if woke:  # the app builds its accessibility tree a moment after being asked
+        for _ in range(5):
+            time.sleep(0.2)
+            code, out, _ = osa(AX_SELECTION)
+            if code == 0 and out:
+                log(f"ax after wake len={len(out)}")
+                return out
+        log(f"ax after wake failed code={code} err={_[:120]!r}")
     old = subprocess.run(["pbpaste"], capture_output=True).stdout
     subprocess.run(["pbcopy"], input=b"")
     time.sleep(0.2)  # let the shortcut's modifier keys come up
-    osa('tell application "System Events" to keystroke "c" using command down')
-    time.sleep(0.15)
+    try:
+        press_cmd_c()
+    except Exception:
+        osa('tell application "System Events" to keystroke "c" using command down')
+    time.sleep(0.3)
     got = subprocess.run(["pbpaste"], capture_output=True).stdout
     subprocess.run(["pbcopy"], input=old)
+    log(f"cmd+c got {len(got)} bytes")
     return got.decode(errors="replace")
 
 def type_unicode(text):
@@ -66,12 +130,14 @@ def main():
     if len(sys.argv) > 2 and sys.argv[1] == "--text":
         print(slugify(sys.argv[2])); return
     slug = slugify(read_selection())
+    log(f"slug={slug!r}")
     if not slug:
         print("Nothing selected", file=sys.stderr); sys.exit(1)
     try:
         type_unicode(slug)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr); sys.exit(1)
+    log("typed")
     print(f"OK {slug}")
 
 if __name__ == "__main__":

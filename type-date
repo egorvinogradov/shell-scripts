@@ -7,6 +7,8 @@ HOW THE KEYBOARD SHORTCUT IS SET (macOS Shortcuts app, nothing in this repo bind
      (shell zsh; leave input options alone; untick "Use as Quick Action" / "Receive What's On Screen")
   3. Shortcut details (the i button, top right) > Add Keyboard Shortcut > press Shift+Ctrl+Option+Cmd+D
   Needs Accessibility permission for the Shortcuts app (System Settings > Privacy & Security).
+  Shortcuts-app keys do nothing in apps with no Services menu (DeepSeek Harness). type-hotkeys.swift
+  in this repo binds the same keys globally and runs this script directly; see its header.
 """
 import subprocess, sys
 from datetime import datetime
